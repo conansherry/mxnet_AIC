@@ -72,7 +72,8 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
     train_dir = os.path.join(root_dir, "keypoint_train_images_20170902")
     anno_file = os.path.join(root_dir, "keypoint_train_annotations_20170909.json")
 
-    train_data = FileIter(train_dir, anno_file)
+
+    train_data = FileIter(train_dir, anno_file, batch_size=args.batch_size, no_shuffle=args.no_shuffle)
     sym = symbol_vgg.get_vgg_train()
 
     arg_params, aux_params = load_param(pretrained, epoch, convert=True)
@@ -135,6 +136,8 @@ def parse_args():
     parser.add_argument('--pretrained_epoch', help='pretrained model epoch', type=int)
     parser.add_argument('--prefix', help='new model prefix', type=str)
     parser.add_argument('--lr', help='base learning rate', default=0.0001, type=float)
+    parser.add_argument('--no_shuffle', help='disable random shuffle', action='store_true')
+    parser.add_argument('--batch_size', help='batch size per gpu', default=10, type=int)
 
     args = parser.parse_args()
     return args
