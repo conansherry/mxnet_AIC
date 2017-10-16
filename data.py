@@ -96,7 +96,7 @@ def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
     return entryX, entryY
 
 class FileIter(DataIter):
-    def __init__(self, img_folder, anno_file, batch_size=20, no_shuffle=True, num=1e6, inp_res=368, stride=8, train=True, sigma=7, thre=1, target_dist=0.6,
+    def __init__(self, img_folder, anno_file, batch_size=10, no_shuffle=True, num=1e6, inp_res=368, stride=8, train=True, sigma=7, thre=1, target_dist=0.6,
                  flip_prob=0.5, scale_min=0.5, scale_max=1.1, rot_factor=40, center_perterb_max=40, label_type='Gaussian'):
         super(FileIter, self).__init__()
         self.img_folder = img_folder  # root image folders

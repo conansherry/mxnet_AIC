@@ -68,7 +68,7 @@ def load_param(prefix, epoch, convert=False, ctx=None):
 
 
 def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
-    root_dir = r'E:\ai_challenger\ai_challenger_keypoint_train_20170909'
+    root_dir = args.dataset
     train_dir = os.path.join(root_dir, "keypoint_train_images_20170902")
     anno_file = os.path.join(root_dir, "keypoint_train_annotations_20170909.json")
 
@@ -118,7 +118,9 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
             eval_metrics.add(AICRMSE(stage=stage, branch=branch))
 
     # optimizer
+
     optimizer_params = {'learning_rate': lr}
+
     mod.fit(train_data, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback,
             eval_metric=eval_metrics,
             optimizer='adam', optimizer_params=optimizer_params,
@@ -127,11 +129,12 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Pose')
     # general
+    parser.add_argument('--dataset', help='dataset dir', type=str)
     parser.add_argument('--gpus', help='GPU device to train with', default='0', type=str)
     parser.add_argument('--pretrained', help='pretrained model prefix', type=str)
     parser.add_argument('--pretrained_epoch', help='pretrained model epoch', type=int)
     parser.add_argument('--prefix', help='new model prefix', type=str)
-    parser.add_argument('--lr', help='base learning rate', default=0.001, type=float)
+    parser.add_argument('--lr', help='base learning rate', default=0.000001, type=float)
 
     args = parser.parse_args()
     return args
