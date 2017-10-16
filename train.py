@@ -134,7 +134,7 @@ def parse_args():
     parser.add_argument('--pretrained', help='pretrained model prefix', type=str)
     parser.add_argument('--pretrained_epoch', help='pretrained model epoch', type=int)
     parser.add_argument('--prefix', help='new model prefix', type=str)
-    parser.add_argument('--lr', help='base learning rate', default=0.000001, type=float)
+    parser.add_argument('--lr', help='base learning rate', default=0.0001, type=float)
 
     args = parser.parse_args()
     return args
