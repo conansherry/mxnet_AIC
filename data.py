@@ -59,27 +59,42 @@ def putGaussianMaps(img, pt, stride, sigma):
     return img
 
 def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
-    start = float(stride) / 2.0 - 0.5
-    centerB = (centerB - start) / stride
-    centerA = (centerA - start) / stride
-    bc = centerB - centerA
-    norm_bc = np.linalg.norm(bc)
-    bc = bc / (norm_bc + 1e-6)
-
+    centerA = centerA / float(stride)
+    centerA_x = centerA[0]
+    centerA_y = centerA[1]
+    centerB = centerB / float(stride)
+    centerB_x = centerB[0]
+    centerB_y = centerB[1]
     grid_x = entryX.shape[1]
     grid_y = entryX.shape[0]
+    bc = centerA - centerB
+    min_x = max(int(round(min(centerA_x, centerB_x) - thre)), 0)
+    max_x = min(int(round(max(centerA_x, centerB_x) + thre)), grid_x)
+    min_y = max(int(round(min(centerA_y, centerB_y) - thre)), 0)
+    max_y = min(int(round(max(centerA_y, centerB_y) + thre)), grid_y)
+    norm_bc = np.linalg.norm(bc)
+    if norm_bc == 0:
+        return entryX, entryY
+    bc = bc / norm_bc
+    bc_x = bc[0]
+    bc_y = bc[1]
+    count = np.zeros((grid_y, grid_x))
 
-    min_x = max(int(np.round(min(centerA[0], centerB[0]) - thre)), 0)
-    max_x = min(int(np.round(max(centerA[0], centerB[0]) + thre)), grid_x)
-    min_y = max(int(np.round(min(centerA[1], centerB[1]) - thre)), 0)
-    max_y = min(int(np.round(max(centerA[1], centerB[1]) + thre)), grid_y)
     for g_y in range(min_y, max_y):
         for g_x in range(min_x, max_x):
-            dist = abs((g_x - centerA[0]) * bc[1] - (g_y - centerA[1]) * bc[0])
-            if dist <= thre:
-                entryX[g_y, g_x] = bc[0]
-                entryY[g_y, g_x] = bc[1]
+            ba_x = g_x - centerA_x
+            ba_y = g_y - centerA_y
+            dist = np.absolute(ba_x * bc_y - ba_y * bc_x)
 
+            if (dist <= thre):
+                cnt = count[g_y, g_x]
+                if (cnt == 0):
+                    entryX[g_y, g_x] = bc_x
+                    entryY[g_y, g_x] = bc_y
+                else:
+                    entryX[g_y, g_x] = (entryX[g_y, g_x] * cnt + bc_x) / (cnt + 1)
+                    entryY[g_y, g_x] = (entryY[g_y, g_x] * cnt + bc_y) / (cnt + 1)
+                    count[g_y, g_x] = cnt + 1
     return entryX, entryY
 
 class FileIter(DataIter):
@@ -326,7 +341,7 @@ class FileIter(DataIter):
             train_label[i] = label
 
             # show data
-            if False:
+            if True:
                 print data.shape, label.shape
                 img = (data.transpose((1, 2, 0)) * self.div_num + self.mean_value).astype(np.uint8)
 
