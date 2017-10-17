@@ -17,54 +17,84 @@
 
 import mxnet as mx
 
-def get_vgg_conv(data):
-    """
-    shared convolutional layers
-    :param data: Symbol
-    :return: Symbol
-    """
-    # group 1
-    conv1_1 = mx.symbol.Convolution(
-        data=data, kernel=(3, 3), pad=(1, 1), num_filter=64, workspace=2048, name="conv1_1")
-    relu1_1 = mx.symbol.Activation(data=conv1_1, act_type="relu", name="relu1_1")
-    conv1_2 = mx.symbol.Convolution(
-        data=relu1_1, kernel=(3, 3), pad=(1, 1), num_filter=64, workspace=2048, name="conv1_2")
-    relu1_2 = mx.symbol.Activation(data=conv1_2, act_type="relu", name="relu1_2")
-    pool1 = mx.symbol.Pooling(
-        data=relu1_2, pool_type="max", kernel=(2, 2), stride=(2, 2), name="pool1")
-    # group 2
-    conv2_1 = mx.symbol.Convolution(
-        data=pool1, kernel=(3, 3), pad=(1, 1), num_filter=128, workspace=2048, name="conv2_1")
-    relu2_1 = mx.symbol.Activation(data=conv2_1, act_type="relu", name="relu2_1")
-    conv2_2 = mx.symbol.Convolution(
-        data=relu2_1, kernel=(3, 3), pad=(1, 1), num_filter=128, workspace=2048, name="conv2_2")
-    relu2_2 = mx.symbol.Activation(data=conv2_2, act_type="relu", name="relu2_2")
-    pool2 = mx.symbol.Pooling(
-        data=relu2_2, pool_type="max", kernel=(2, 2), stride=(2, 2), name="pool2")
-    # group 3
-    conv3_1 = mx.symbol.Convolution(
-        data=pool2, kernel=(3, 3), pad=(1, 1), num_filter=256, workspace=2048, name="conv3_1")
-    relu3_1 = mx.symbol.Activation(data=conv3_1, act_type="relu", name="relu3_1")
-    conv3_2 = mx.symbol.Convolution(
-        data=relu3_1, kernel=(3, 3), pad=(1, 1), num_filter=256, workspace=2048, name="conv3_2")
-    relu3_2 = mx.symbol.Activation(data=conv3_2, act_type="relu", name="relu3_2")
-    conv3_3 = mx.symbol.Convolution(
-        data=relu3_2, kernel=(3, 3), pad=(1, 1), num_filter=256, workspace=2048, name="conv3_3")
-    relu3_3 = mx.symbol.Activation(data=conv3_3, act_type="relu", name="relu3_3")
-    pool3 = mx.symbol.Pooling(
-        data=relu3_3, pool_type="max", kernel=(2, 2), stride=(2, 2), name="pool3")
-    # group 4
-    conv4_1 = mx.symbol.Convolution(
-        data=pool3, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_1")
-    relu4_1 = mx.symbol.Activation(data=conv4_1, act_type="relu", name="relu4_1")
-    conv4_2 = mx.symbol.Convolution(
-        data=relu4_1, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_2")
-    relu4_2 = mx.symbol.Activation(data=conv4_2, act_type="relu", name="relu4_2")
-    conv4_3 = mx.symbol.Convolution(
-        data=relu4_2, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_3")
-    relu4_3 = mx.symbol.Activation(data=conv4_3, act_type="relu", name="relu4_3")
+eps = 2e-5
+use_global_stats = True
+workspace = 512
+res_type = '101'
+res_deps = {'34': (3, 4, 6, 3), '50': (3, 4, 6, 3), '101': (3, 4, 23, 3), '152': (3, 8, 36, 3), '200': (3, 24, 36, 3)}
+units = res_deps[res_type]
+if res_type != '34':
+    filter_list = [256, 512, 1024, 2048]
+else:
+    filter_list = [64, 128, 256, 512]
 
-    return relu4_3
+def residual_unit(data, num_filter, stride, dim_match, name):
+    if res_type == '34':
+        bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=eps, use_global_stats=use_global_stats, name=name + '_bn1')
+        act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
+        conv1 = mx.sym.Convolution(data=act1, num_filter=int(num_filter), kernel=(3, 3), stride=stride, pad=(1, 1),
+                                   no_bias=True, workspace=workspace, name=name + '_conv1')
+        bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, eps=eps, use_global_stats=use_global_stats, name=name + '_bn2')
+        act2 = mx.sym.Activation(data=bn2, act_type='relu', name=name + '_relu2')
+        conv2 = mx.sym.Convolution(data=act2, num_filter=int(num_filter), kernel=(3, 3), stride=(1, 1), pad=(1, 1),
+                                   no_bias=True, workspace=workspace, name=name + '_conv2')
+        if dim_match:
+            shortcut = data
+        else:
+            shortcut = mx.sym.Convolution(data=act1, num_filter=num_filter, kernel=(1, 1), stride=stride, no_bias=True,
+                                          workspace=workspace, name=name + '_sc')
+        sum = mx.sym.ElementWiseSum(*[conv2, shortcut], name=name + '_plus')
+    else:
+        bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=eps, use_global_stats=use_global_stats,
+                               name=name + '_bn1')
+        act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
+        conv1 = mx.sym.Convolution(data=act1, num_filter=int(num_filter * 0.25), kernel=(1, 1), stride=(1, 1),
+                                   pad=(0, 0),
+                                   no_bias=True, workspace=workspace, name=name + '_conv1')
+        bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, eps=eps, use_global_stats=use_global_stats,
+                               name=name + '_bn2')
+        act2 = mx.sym.Activation(data=bn2, act_type='relu', name=name + '_relu2')
+        conv2 = mx.sym.Convolution(data=act2, num_filter=int(num_filter * 0.25), kernel=(3, 3), stride=stride,
+                                   pad=(1, 1),
+                                   no_bias=True, workspace=workspace, name=name + '_conv2')
+        bn3 = mx.sym.BatchNorm(data=conv2, fix_gamma=False, eps=eps, use_global_stats=use_global_stats,
+                               name=name + '_bn3')
+        act3 = mx.sym.Activation(data=bn3, act_type='relu', name=name + '_relu3')
+        conv3 = mx.sym.Convolution(data=act3, num_filter=num_filter, kernel=(1, 1), stride=(1, 1), pad=(0, 0),
+                                   no_bias=True,
+                                   workspace=workspace, name=name + '_conv3')
+        if dim_match:
+            shortcut = data
+        else:
+            shortcut = mx.sym.Convolution(data=act1, num_filter=num_filter, kernel=(1, 1), stride=stride, no_bias=True,
+                                          workspace=workspace, name=name + '_sc')
+        sum = mx.sym.ElementWiseSum(*[conv3, shortcut], name=name + '_plus')
+    return sum
+
+def get_resnet_conv(data):
+    # res1
+    data_bn = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=eps, use_global_stats=use_global_stats, name='bn_data')
+    conv0 = mx.sym.Convolution(data=data_bn, num_filter=64, kernel=(7, 7), stride=(2, 2), pad=(3, 3),
+                               no_bias=True, name="conv0", workspace=workspace)
+    bn0 = mx.sym.BatchNorm(data=conv0, fix_gamma=False, eps=eps, use_global_stats=use_global_stats, name='bn0')
+    relu0 = mx.sym.Activation(data=bn0, act_type='relu', name='relu0')
+    pool0 = mx.symbol.Pooling(data=relu0, kernel=(3, 3), stride=(2, 2), pad=(1, 1), pool_type='max', name='pool0')
+
+    # res2
+    unit = residual_unit(data=pool0, num_filter=filter_list[0], stride=(1, 1), dim_match=False, name='stage1_unit1')
+    for i in range(2, units[0] + 1):
+        unit = residual_unit(data=unit, num_filter=filter_list[0], stride=(1, 1), dim_match=True, name='stage1_unit%s' % i)
+
+    # res3
+    unit = residual_unit(data=unit, num_filter=filter_list[1], stride=(2, 2), dim_match=False, name='stage2_unit1')
+    for i in range(2, units[1] + 1):
+        unit = residual_unit(data=unit, num_filter=filter_list[1], stride=(1, 1), dim_match=True, name='stage2_unit%s' % i)
+
+    # res4
+    unit = residual_unit(data=unit, num_filter=filter_list[2], stride=(1, 1), dim_match=False, name='stage3_unit1')
+    for i in range(2, units[2] + 1):
+        unit = residual_unit(data=unit, num_filter=filter_list[2], stride=(1, 1), dim_match=True, name='stage3_unit%s' % i)
+    return unit
 
 def get_stage_1(conv_feat):
     conv5_1_CPM_L1 = mx.symbol.Convolution(name='conv5_1_CPM_L1', data=conv_feat, num_filter=128, pad=(1, 1),
@@ -144,7 +174,7 @@ def get_stage_n(conv_feat, pre_l1, pre_l2, N):
 
     return Mconv7_stage_L1, Mconv7_stage_L2
 
-def get_vgg_train():
+def get_resnet_train():
     data = mx.symbol.Variable(name="data")
     label = mx.symbol.Variable(name="l2_label")
 
@@ -154,9 +184,9 @@ def get_vgg_train():
                                                    name='partaffinityglabel_reshape')
     heatmaplabel_reshape = mx.symbol.Reshape(data=heatmaplabel, shape=(-1,), name='heatmaplabel_reshape')
 
-    relu4_3 = get_vgg_conv(data)
+    res_feat = get_resnet_conv(data)
 
-    conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3, num_filter=256, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
+    conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=res_feat, num_filter=256, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
     relu4_4_CPM = mx.symbol.Activation(name='relu4_4_CPM', data=conv4_4_CPM, act_type='relu')
     conv4_5_CPM = mx.symbol.Convolution(name='conv4_5_CPM', data=relu4_4_CPM, num_filter=128, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
     relu4_5_CPM = mx.symbol.Activation(name='relu4_5_CPM', data=conv4_5_CPM, act_type='relu')
@@ -231,30 +261,8 @@ def get_vgg_train():
                              stage6_loss_l1, stage6_loss_l2])
     return group
 
-def get_vgg_test():
-    data = mx.symbol.Variable(name="data")
-
-    relu4_3 = get_vgg_conv(data)
-
-    conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3, num_filter=256, pad=(1, 1), kernel=(3, 3),
-                                        stride=(1, 1), no_bias=False)
-    relu4_4_CPM = mx.symbol.Activation(name='relu4_4_CPM', data=conv4_4_CPM, act_type='relu')
-    conv4_5_CPM = mx.symbol.Convolution(name='conv4_5_CPM', data=relu4_4_CPM, num_filter=128, pad=(1, 1), kernel=(3, 3),
-                                        stride=(1, 1), no_bias=False)
-    relu4_5_CPM = mx.symbol.Activation(name='relu4_5_CPM', data=conv4_5_CPM, act_type='relu')
-
-    stage1_l1, stage1_l2 = get_stage_1(relu4_5_CPM)
-
-    stage2_l1, stage2_l2 = get_stage_n(relu4_5_CPM, stage1_l1, stage1_l2, 2)
-    stage3_l1, stage3_l2 = get_stage_n(relu4_5_CPM, stage2_l1, stage2_l2, 3)
-    stage4_l1, stage4_l2 = get_stage_n(relu4_5_CPM, stage3_l1, stage3_l2, 4)
-    stage5_l1, stage5_l2 = get_stage_n(relu4_5_CPM, stage4_l1, stage4_l2, 5)
-    stage6_l1, stage6_l2 = get_stage_n(relu4_5_CPM, stage5_l1, stage5_l2, 6)
-
-    return mx.symbol.Group([stage6_l1, stage6_l2])
-
 if __name__ == "__main__":
-    network = get_vgg_test()
+    network = get_resnet_train()
 
-    tmp = mx.viz.plot_network(network, shape={'data': (1, 3, 368, 368)})
+    tmp = mx.viz.plot_network(network, shape={'data': (1, 3, 368, 368), 'l2_label': (1, 41, 46, 46)})
     tmp.view()

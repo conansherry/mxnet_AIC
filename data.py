@@ -39,36 +39,23 @@ def swapleftright(x, width):
 
     return x
 
-def putGaussianMaps(img, pt, stride, sigma, type='Gaussian'):
-    # Draw a 2D gaussian
-    # Adopted from https://github.com/anewell/pose-hg-train/blob/master/src/pypose/draw.py
+def putGaussianMaps(img, pt, stride, sigma):
+    img = np.copy(img)
     start = float(stride) / 2.0 - 0.5
-    # Check that any part of the gaussian is in-bounds
-    ul = [int(round((pt[0]-start)/stride) - 3 * 1), int(round((pt[1]-start)/stride) - 3 * 1)]
-    br = [int(round((pt[0]-start)/stride) + 3 * 1), int(round((pt[1]-start)/stride) + 3 * 1)]
-    if (ul[0] >= img.shape[1] or ul[1] >= img.shape[0] or br[0] < 0 or br[1] < 0):
-        # If not, just return the image as is
-        return img
-
-    # Generate gaussian
-    x = np.linspace(ul[0]*stride+start, br[0]*stride+start, br[0]-ul[0]+1, dtype=float)
-    y = np.linspace(ul[1]*stride+start, br[1]*stride+start, br[1]-ul[1]+1, dtype=float)
-    y = y[:, np.newaxis]
-    # The gaussian is not normalized, we want the center value to equal 1
-    if type == 'Gaussian':
-        g = np.exp(- ((x - pt[0]) ** 2 + (y - pt[1]) ** 2) / (2 * sigma ** 2))
-    elif type == 'Cauchy':
-        g = sigma / (((x - pt[0]) ** 2 + (y - pt[1]) ** 2 + sigma ** 2) ** 1.5)
-
-    # Usable gaussian range
-    g_x = max(0, -ul[0]), min(br[0], img.shape[1]) - ul[0]
-    g_y = max(0, -ul[1]), min(br[1], img.shape[0]) - ul[1]
-    # Image range
-    img_x = max(0, ul[0]), min(br[0], img.shape[1])
-    img_y = max(0, ul[1]), min(br[1], img.shape[0])
-
-    img[img_y[0]:img_y[1], img_x[0]:img_x[1]] += g[g_y[0]:g_y[1], g_x[0]:g_x[1]]  # CAFFE TRAIN
-
+    center_x = pt[0]
+    center_y = pt[1]
+    grid_y = img.shape[0]
+    grid_x = img.shape[1]
+    for i in range(grid_y):
+        for j in range(grid_x):
+            x = start + j * stride
+            y = start + i * stride
+            d2 = (x - center_x) * (x - center_x) + (y - center_y) * (y - center_y)
+            exponent = d2 / 2.0 / sigma / sigma
+            if exponent > 4.6052:
+                continue
+            img[i, j] += math.exp(-exponent)
+    img = np.clip(img, 0, 1)
     return img
 
 def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
@@ -96,8 +83,8 @@ def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
     return entryX, entryY
 
 class FileIter(DataIter):
-    def __init__(self, img_folder, anno_file, batch_size=20, no_shuffle=True, num=1e6, inp_res=368, stride=8, train=True, sigma=7, thre=1, target_dist=0.6,
-                 flip_prob=0.5, scale_min=0.5, scale_max=1.1, rot_factor=40, center_perterb_max=40, label_type='Gaussian'):
+    def __init__(self, img_folder, anno_file, batch_size=20, no_shuffle=True, mean_value=0, div_num=1., num=1e6, inp_res=368, stride=8, train=True, sigma=12, thre=1.4, target_dist=1.0,
+                 flip_prob=0.5, scale_min=0.8, scale_max=1.2, rot_factor=20, center_perterb_max=20, label_type='Gaussian'):
         super(FileIter, self).__init__()
         self.img_folder = img_folder  # root image folders
         self.is_train = train  # training set or test set
@@ -143,6 +130,8 @@ class FileIter(DataIter):
         if not self.no_shuffle:
             random.shuffle(self.index)
         self.data_cursor = 0
+        self.mean_value = mean_value
+        self.div_num = div_num
 
         self._read()
 
@@ -204,7 +193,7 @@ class FileIter(DataIter):
             R[1, 2] += bbox[3] / 2 - center[1]
 
             img_temp2 = cv2.warpAffine(img_temp, R, bbox[2:4], flags=cv2.INTER_CUBIC+cv2.BORDER_CONSTANT,
-                                       borderValue=(128, 128, 128))
+                                       borderValue=(127, 127, 127))
 
             for i in range(human_count):
                 temp = np.ones((nparts, 3))
@@ -237,7 +226,7 @@ class FileIter(DataIter):
             R[1, 2] += bbox[3] / 2 - center[1] + y_offset
 
             img_temp3 = cv2.warpAffine(img_temp2, R, bbox[2:4], flags=cv2.INTER_CUBIC + cv2.BORDER_CONSTANT,
-                                       borderValue=(128, 128, 128))
+                                       borderValue=(127, 127, 127))
 
             for i in range(human_count):
                 temp = np.ones((nparts, 3))
@@ -277,7 +266,7 @@ class FileIter(DataIter):
             dsize = (int(round(float(img_src.shape[1]) * scale)), int(round(float(img_src.shape[0]) * scale)))
             img_aug = cv2.resize(img_src, dsize, interpolation=cv2.INTER_CUBIC)
             img_aug = cv2.copyMakeBorder(img_aug, 0, self.inp_res-img_aug.shape[0], 0, self.inp_res-img_aug.shape[1],
-                                         cv2.BORDER_CONSTANT, value=(128, 128, 128))
+                                         cv2.BORDER_CONSTANT, value=(127, 127, 127))
             for i in range(human_count):
                 pts[i][:, :2] = pts[i][:, :2] * scale
                 rect[i] = rect[i] * scale
@@ -294,7 +283,7 @@ class FileIter(DataIter):
                         cv2.waitKey(0)
 
         # copy transformed img (img_aug) into transformed_data, do the mean-subtraction here
-        transformed_data = (img_aug.transpose((2, 0, 1)) - 127) / 255.
+        transformed_data = (img_aug.transpose((2, 0, 1)) - self.mean_value) / self.div_num
 
         # Generate ground truth
         target = np.zeros((npaf + nparts + 1, self.out_res, self.out_res))
@@ -331,7 +320,7 @@ class FileIter(DataIter):
         train_label = np.zeros((self.batch_size, self.npaf + self.nparts + 1, self.out_res, self.out_res), dtype=np.float32)
 
         for i in range(self.batch_size):
-            data, label, _ = self._getitem(self.data_cursor + i)
+            data, label, _ = self._getitem(self.index[self.data_cursor + i])
 
             train_img[i] = data
             train_label[i] = label
@@ -339,27 +328,39 @@ class FileIter(DataIter):
             # show data
             if False:
                 print data.shape, label.shape
-                img = (data.transpose((1, 2, 0)) * 255 + 127).astype(np.uint8)
+                img = (data.transpose((1, 2, 0)) * self.div_num + self.mean_value).astype(np.uint8)
 
-                pafs = (np.max(np.abs(label[:self.npaf]), 0) * 255).astype(np.uint8)
-                pafs = cv2.resize(pafs, (0, 0), fx=self.stride, fy=self.stride)
-                pafs = cv2.applyColorMap(pafs, cv2.COLORMAP_JET)
-                img_pafs = np.copy(img)
-                img_pafs = (0.6 * img_pafs + 0.4 * pafs).astype(np.uint8)
-                cv2.imshow('img_pafs', img_pafs)
+                perimg_len = 200
 
-                parts = (np.max(label[self.npaf:(self.npaf + self.nparts), :, :], 0) * 256).astype(np.uint8)
-                parts = cv2.resize(parts, (0, 0), fx=self.stride, fy=self.stride)
-                parts = cv2.applyColorMap(parts, cv2.COLORMAP_JET)
-                img_parts = np.copy(img)
-                img_parts = (0.6 * img_parts + 0.4 * parts).astype(np.uint8)
-                cv2.imshow('img_parts', img_parts)
+                show_height = 4
+                show_width = 7
+                show_pafs = np.zeros((show_height * perimg_len, show_width * perimg_len, 3), dtype=np.uint8)
+                for j in range(self.npaf):
+                    pafs = (np.abs(label[j, :, :]) * 255).astype(np.uint8)
+                    pafs = cv2.resize(pafs, (0, 0), fx=self.stride, fy=self.stride)
+                    pafs = cv2.applyColorMap(pafs, cv2.COLORMAP_JET)
+                    img_pafs = (0.6 * img + 0.4 * pafs).astype(np.uint8)
+                    index_row = j / show_width
+                    index_col = j % show_width
+                    show_pafs[index_row * perimg_len:(index_row + 1) * perimg_len, index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_pafs, (perimg_len, perimg_len))
+                cv2.imshow('show_pafs', show_pafs)
+
+                show_len = 4
+                show_parts = np.zeros((show_len * perimg_len, show_len * perimg_len, 3), dtype=np.uint8)
+                for j in range(self.nparts):
+                    parts = (label[self.npaf + j, :, :] * 255).astype(np.uint8)
+                    parts = cv2.resize(parts, (0, 0), fx=self.stride, fy=self.stride)
+                    parts = cv2.applyColorMap(parts, cv2.COLORMAP_JET)
+                    img_parts = (0.6 * img + 0.4 * parts).astype(np.uint8)
+                    index_row = j / show_len
+                    index_col = j % show_len
+                    show_parts[index_row * perimg_len:(index_row + 1) * perimg_len, index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_parts, (perimg_len, perimg_len))
+                cv2.imshow('show_parts', show_parts)
 
                 parts = (label[self.npaf + self.nparts] * 255).astype(np.uint8)
                 parts = cv2.resize(parts, (0, 0), fx=self.stride, fy=self.stride)
                 parts = cv2.applyColorMap(parts, cv2.COLORMAP_JET)
-                img_parts = np.copy(img)
-                img_parts = (0.6 * img_parts + 0.4 * parts).astype(np.uint8)
+                img_parts = (0.6 * img + 0.4 * parts).astype(np.uint8)
                 cv2.imshow('img_parts_bg', img_parts)
 
                 cv2.imshow('img', img)

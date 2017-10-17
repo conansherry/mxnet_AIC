@@ -6,8 +6,10 @@ import mxnet.metric
 import numpy as np
 import random
 import symbol_vgg
+import symbol_resnet
 from data import FileIter
 from metric import AICRMSE
+from utils import *
 
 import logging
 # set up logger
@@ -15,66 +17,22 @@ logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def load_checkpoint(prefix, epoch):
-    """
-    Load model checkpoint from file.
-    :param prefix: Prefix of model name.
-    :param epoch: Epoch number of model we would like to load.
-    :return: (arg_params, aux_params)
-    arg_params : dict of str to NDArray
-        Model parameter, dict of name to NDArray of net's weights.
-    aux_params : dict of str to NDArray
-        Model parameter, dict of name to NDArray of net's auxiliary states.
-    """
-    save_dict = mx.nd.load('%s-%04d.params' % (prefix, epoch))
-    arg_params = {}
-    aux_params = {}
-    for k, v in save_dict.items():
-        tp, name = k.split(':', 1)
-        if tp == 'arg':
-            arg_params[name] = v
-        if tp == 'aux':
-            aux_params[name] = v
-    return arg_params, aux_params
-
-def convert_context(params, ctx):
-    """
-    :param params: dict of str to NDArray
-    :param ctx: the context to convert to
-    :return: dict of str of NDArray with context ctx
-    """
-    new_params = dict()
-    for k, v in params.items():
-        new_params[k] = v.as_in_context(ctx)
-    return new_params
-
-def load_param(prefix, epoch, convert=False, ctx=None):
-    """
-    wrapper for load checkpoint
-    :param prefix: Prefix of model name.
-    :param epoch: Epoch number of model we would like to load.
-    :param convert: reference model should be converted to GPU NDArray first
-    :param ctx: if convert then ctx must be designated.
-    :param process: model should drop any test
-    :return: (arg_params, aux_params)
-    """
-    arg_params, aux_params = load_checkpoint(prefix, epoch)
-    if convert:
-        if ctx is None:
-            ctx = mx.cpu()
-        arg_params = convert_context(arg_params, ctx)
-        aux_params = convert_context(aux_params, ctx)
-    return arg_params, aux_params
-
-
 def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
     root_dir = args.dataset
     train_dir = os.path.join(root_dir, "keypoint_train_images_20170902")
     anno_file = os.path.join(root_dir, "keypoint_train_annotations_20170909.json")
 
-
-    train_data = FileIter(train_dir, anno_file, batch_size=args.batch_size, no_shuffle=args.no_shuffle)
-    sym = symbol_vgg.get_vgg_train()
+    if args.network == 'vgg':
+        mean_value = 127
+        div_num = 255.
+    else:
+        mean_value = 0
+        div_num = 1.
+    train_data = FileIter(train_dir, anno_file, batch_size=args.batch_size, no_shuffle=args.no_shuffle, mean_value=mean_value, div_num=div_num)
+    if args.network == 'vgg':
+        sym = symbol_vgg.get_vgg_train()
+    else:
+        sym = symbol_resnet.get_resnet_train()
 
     arg_params, aux_params = load_param(pretrained, epoch, convert=True)
 
@@ -108,7 +66,19 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
 
     data_names = [k[0] for k in train_data.provide_data]
     label_names = [k[0] for k in train_data.provide_label]
-    mod = mx.mod.Module(symbol=sym, data_names=data_names, label_names=label_names, context=ctx, logger=logger)
+
+    if args.network == 'resnet':
+        fixed_param_prefix = ['conv0', 'stage1', 'gamma', 'beta']
+        fixed_param_names = list()
+        if fixed_param_prefix is not None:
+            for name in sym.list_arguments():
+                for prefix_ in fixed_param_prefix:
+                    if prefix_ in name:
+                        fixed_param_names.append(name)
+        print('fix params ' + str(fixed_param_names))
+    else:
+        fixed_param_names = None
+    mod = mx.mod.Module(symbol=sym, data_names=data_names, label_names=label_names, context=ctx, logger=logger, fixed_param_names=fixed_param_names)
 
     batch_end_callback = mx.callback.Speedometer(train_data.batch_size, frequent=10, auto_reset=False)
     epoch_end_callback = mx.callback.do_checkpoint(prefix)
@@ -116,10 +86,9 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
     eval_metrics = mx.metric.CompositeEvalMetric()
     for branch in range(1, 3):
         for stage in range(1, 7):
-            eval_metrics.add(AICRMSE(stage=stage, branch=branch))
+            eval_metrics.add(AICRMSE(train_data.batch_size, stage=stage, branch=branch))
 
     # optimizer
-
     optimizer_params = {'learning_rate': lr}
 
     mod.fit(train_data, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback,
@@ -131,6 +100,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train Pose')
     # general
     parser.add_argument('--dataset', help='dataset dir', type=str)
+    parser.add_argument('--network', help='network type', default='vgg', type=str)
     parser.add_argument('--gpus', help='GPU device to train with', default='0', type=str)
     parser.add_argument('--pretrained', help='pretrained model prefix', type=str)
     parser.add_argument('--pretrained_epoch', help='pretrained model epoch', type=int)
