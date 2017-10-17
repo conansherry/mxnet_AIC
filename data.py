@@ -341,7 +341,7 @@ class FileIter(DataIter):
             train_label[i] = label
 
             # show data
-            if True:
+            if False:
                 print data.shape, label.shape
                 img = (data.transpose((1, 2, 0)) * self.div_num + self.mean_value).astype(np.uint8)
 
