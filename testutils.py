@@ -145,11 +145,11 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params):
         imageToTest_padded, pad = padRightDownCorner(imageToTest, stride, padValue)
 
         # print imageToTest_padded.shape
-        cv2.imshow("pad", imageToTest_padded)
-        cv2.waitKey(0)
+        # cv2.imshow("pad", imageToTest_padded)
+        # cv2.waitKey(0)
 
         imageToTest_padded = np.expand_dims(imageToTest_padded.transpose((2, 0, 1)), 0).astype(np.float32)
-        imageToTest_padded = (imageToTest_padded - 127) / 255.
+        imageToTest_padded = (imageToTest_padded.astype(np.uint8) - 127) / 255.
         net.bind(data_shapes=[('data', imageToTest_padded.shape)], for_training=False, force_rebind=True)
         net.init_params(arg_params=arg_params, aux_params=aux_params)
         net.forward(mx.io.DataBatch([mx.nd.array(imageToTest_padded)]))

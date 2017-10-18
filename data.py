@@ -98,8 +98,8 @@ def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
     return entryX, entryY
 
 class FileIter(DataIter):
-    def __init__(self, img_folder, anno_file, batch_size=20, no_shuffle=True, mean_value=0, div_num=1., num=1e6, inp_res=368, stride=8, train=True, sigma=12, thre=1.4, target_dist=1.0,
-                 flip_prob=0.5, scale_min=0.8, scale_max=1.2, rot_factor=20, center_perterb_max=20, label_type='Gaussian'):
+    def __init__(self, img_folder, anno_file, batch_size=20, no_shuffle=True, mean_value=0, div_num=1., num=1e6, inp_res=368, stride=8, train=True, sigma=7, thre=1, target_dist=0.7,
+                 flip_prob=0.5, scale_min=0.5, scale_max=1.5, rot_factor=40, center_perterb_max=40, label_type='Gaussian'):
         super(FileIter, self).__init__()
         self.img_folder = img_folder  # root image folders
         self.is_train = train  # training set or test set
@@ -306,16 +306,32 @@ class FileIter(DataIter):
         mid_1 = [13, 6, 7, 13, 9, 10, 13, 0, 1, 13, 3, 4, 13]
         mid_2 = [ 6, 7, 8,  9,10, 11,  0, 1, 2,  3, 4, 5, 12]
         for i in range(human_count):
+            human_rect = rect[i]
+            human_width = human_rect[2] - human_rect[0]
+            human_height = human_rect[3] - human_rect[1]
+            if human_height > 2 * human_width:
+                tmp_thre = human_width * 0.007
+            else:
+                tmp_thre = (human_width + human_height) / 2 * 0.005
+            tmp_thre = np.clip(tmp_thre, 1, 2)
             for j in range(npaf / 2):
                 if int(pts[i][mid_1[j], 2]) != 3 and int(pts[i][mid_2[j], 2]) != 3:
                     target[2 * j], target[2 * j + 1] = \
                         putVecMaps(target[2 * j], target[2 * j + 1],
-                                   pts[i][mid_1[j], :2], pts[i][mid_2[j], :2], self.stride, self.thre)
+                                   pts[i][mid_1[j], :2], pts[i][mid_2[j], :2], self.stride, tmp_thre)
 
         for i in range(human_count):
+            human_rect = rect[i]
+            human_width = human_rect[2] - human_rect[0]
+            human_height = human_rect[3] - human_rect[1]
+            if human_height > 2 * human_width or human_width > 2 * human_height:
+                tmp_sigma = min(human_width, human_height) * 0.07
+            else:
+                tmp_sigma = (human_width + human_height) / 2 * 0.05
+            tmp_sigma = np.clip(tmp_sigma, 7, 16)
             for j in range(nparts):
                 if int(pts[i][j, 2]) != 3:
-                    target[npaf+j] = putGaussianMaps(target[npaf+j], pts[i][j], self.stride, self.sigma)
+                    target[npaf+j] = putGaussianMaps(target[npaf+j], pts[i][j], self.stride, tmp_sigma)
 
         for j in range(nparts):
             target[npaf + j] = np.clip(target[npaf + j], 0, 1)

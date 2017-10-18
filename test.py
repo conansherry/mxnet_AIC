@@ -56,11 +56,11 @@ parser.add_argument('--padValue', default=127, type=int, metavar='N',
 args = parser.parse_args()
 
 # ImageFile
-anno_file = os.path.join(args.dataset, 'keypoint_train_annotations_20170909.json')
+anno_file = os.path.join(args.dataset, 'keypoint_validation_annotations_20170911.json')
 if 'test' not in args.dataset and os.path.exists(anno_file):  # VAL MODE
     anno = json.load(open(anno_file, 'r'))
     image_ids = [a['image_id'] for a in anno]
-    image_files = [os.path.join(args.dataset, 'keypoint_train_images_20170902', f+'.jpg') for f in image_ids]
+    image_files = [os.path.join(args.dataset, 'keypoint_validation_images_20170911', f+'.jpg') for f in image_ids]
 else:  # IMAGE MODE
     image_files = glob.glob(os.path.join(args.dataset, '*.jpg'))
     image_ids = [os.path.basename(path)[:-4] for path in image_files]
@@ -99,7 +99,6 @@ res = []
 for f in range(start_f, end_f):
     tic = time.time()
     oriImg = cv2.imread(image_files[f])
-    oriImg = cv2.imread("test_train.png")
 
     heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params)
     candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args)
