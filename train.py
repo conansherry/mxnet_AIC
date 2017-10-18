@@ -86,7 +86,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
     eval_metrics = mx.metric.CompositeEvalMetric()
     for branch in range(1, 3):
         for stage in range(1, 7):
-            eval_metrics.add(AICRMSE(train_data.batch_size, stage=stage, branch=branch))
+            eval_metrics.add(AICRMSE(train_data.batch_size / len(ctx), stage=stage, branch=branch))
 
     # optimizer
     optimizer_params = {'learning_rate': lr}

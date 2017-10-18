@@ -92,15 +92,16 @@ for k in sym.list_auxiliary_states():
         'shape inconsistent for ' + k + ' inferred ' + str(aux_shape_dict[k]) + ' provided ' + str(aux_params[k].shape)
 
 mod = mx.mod.Module(sym, data_names=('data', ), label_names=None, logger=logger, context=ctx)
-mod.bind([('data', (1, 3, 368, 368))], for_training=False, force_rebind=True)
-mod.init_params(arg_params=arg_params, aux_params=aux_params)
+# mod.bind([('data', (1, 3, 368, 368))], for_training=False, force_rebind=True)
+# mod.init_params(arg_params=arg_params, aux_params=aux_params)
 
 res = []
 for f in range(start_f, end_f):
     tic = time.time()
     oriImg = cv2.imread(image_files[f])
+    oriImg = cv2.imread("test_train.png")
 
-    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args)
+    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params)
     candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args)
 
     gt_batch_img = cvim_with_heatmap(oriImg, heatmap_avg, num_rows=4)

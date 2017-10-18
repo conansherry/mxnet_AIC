@@ -298,7 +298,8 @@ class FileIter(DataIter):
                         cv2.waitKey(0)
 
         # copy transformed img (img_aug) into transformed_data, do the mean-subtraction here
-        transformed_data = (img_aug.transpose((2, 0, 1)) - self.mean_value) / self.div_num
+        # img_aug is not float32, bug!!
+        transformed_data = (img_aug.transpose((2, 0, 1)).astype(np.float32) - self.mean_value) / self.div_num
 
         # Generate ground truth
         target = np.zeros((npaf + nparts + 1, self.out_res, self.out_res))
