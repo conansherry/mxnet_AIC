@@ -183,7 +183,7 @@ class FileIter(DataIter):
             s = np.clip((random.random() * (smax - smin)) + smin, smin, smax)
             scale_abs = self.target_dist / scale_self
             s = scale_abs * s
-            if s == 0:
+            if s == 0 or img_src is None:
                 assert False, self.annos[index]['image_id'] + '.jpg'
             img_temp = cv2.resize(img_src, (0, 0), fx=s, fy=s, interpolation=cv2.INTER_CUBIC)
 
