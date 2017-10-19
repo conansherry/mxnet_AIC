@@ -24,7 +24,7 @@ parser.add_argument('--epoch', help='model to test with', type=int)
 parser.add_argument('--gpu', help='GPU device to test with', default=1, type=int)
 parser.add_argument('--dataset', metavar='DATA', help='path to dataset')
 parser.add_argument('--o','--outputjson', dest='outputjson',
-                    default='', metavar='FILE', help='file to save result')
+                    default='outputjson.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
 parser.add_argument('--e', default=5000, type=int, metavar='N',
@@ -92,8 +92,8 @@ for k in sym.list_auxiliary_states():
         'shape inconsistent for ' + k + ' inferred ' + str(aux_shape_dict[k]) + ' provided ' + str(aux_params[k].shape)
 
 mod = mx.mod.Module(sym, data_names=('data', ), label_names=None, logger=logger, context=ctx)
-# mod.bind([('data', (1, 3, 368, 368))], for_training=False, force_rebind=True)
-# mod.init_params(arg_params=arg_params, aux_params=aux_params)
+mod.bind([('data', (1, 3, 368, 368))], for_training=False, force_rebind=True)
+mod.init_params(arg_params=arg_params, aux_params=aux_params)
 
 res = []
 for f in range(start_f, end_f):

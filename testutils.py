@@ -149,9 +149,8 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params):
         # cv2.waitKey(0)
 
         imageToTest_padded = np.expand_dims(imageToTest_padded.transpose((2, 0, 1)), 0).astype(np.float32)
-        imageToTest_padded = (imageToTest_padded.astype(np.uint8) - 127) / 255.
-        net.bind(data_shapes=[('data', imageToTest_padded.shape)], for_training=False, force_rebind=True)
-        net.init_params(arg_params=arg_params, aux_params=aux_params)
+        imageToTest_padded = (imageToTest_padded - 127) / 255.
+        # net.bind(data_shapes=[('data', imageToTest_padded.shape)], for_training=False, force_rebind=False, shared_module=net)
         net.forward(mx.io.DataBatch([mx.nd.array(imageToTest_padded)]))
 
         outputs = dict(zip(net.output_names, net.get_outputs()))
@@ -168,17 +167,59 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params):
         heatmap_avg += resize_output2[:-1]
         paf_avg += resize_output1
 
-    heatmap_avg = (heatmap_avg / float(octave)).transpose((1, 2, 0))
-    paf_avg = (paf_avg / float(octave)).transpose((1, 2, 0))
-    heatmap_avg = np.clip(heatmap_avg, 0, 1)
-    paf_avg = np.clip(paf_avg, 0, 1)
+    heatmap_avg = heatmap_avg / float(octave)
+    paf_avg = paf_avg / float(octave)
 
-    heatmap_show = (np.max(heatmap_avg, 2) * 255).astype(np.uint8)
-    heatmap_show = cv2.applyColorMap(heatmap_show, cv2.COLORMAP_JET)
-    img_parts = np.copy(oriImg)
-    img_parts = (0.6 * img_parts + 0.4 * heatmap_show).astype(np.uint8)
-    cv2.imshow('heatmap_show', img_parts)
-    cv2.waitKey()
+    visual = True
+    if visual:
+        div_num = 255.
+        mean_value = 127
+        npaf = 26
+        nparts = 14
+        stride = 8
+        label = np.concatenate((paf_avg, heatmap_avg), axis=0)
+        img = np.copy(oriImg)
+
+        perimg_len = 200
+
+        show_height = 4
+        show_width = 7
+        show_pafs = np.zeros((show_height * perimg_len, show_width * perimg_len, 3), dtype=np.uint8)
+        for j in range(npaf):
+            pafs = (np.abs(label[j, :, :]) * 255).astype(np.uint8)
+            pafs = cv2.applyColorMap(pafs, cv2.COLORMAP_JET)
+            img_pafs = (0.6 * img + 0.4 * pafs).astype(np.uint8)
+            index_row = j / show_width
+            index_col = j % show_width
+            show_pafs[index_row * perimg_len:(index_row + 1) * perimg_len,
+            index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_pafs, (perimg_len, perimg_len))
+        cv2.imshow('show_pafs', show_pafs)
+
+        show_len = 4
+        show_parts = np.zeros((show_len * perimg_len, show_len * perimg_len, 3), dtype=np.uint8)
+        for j in range(nparts):
+            parts = (label[npaf + j, :, :] * 255).astype(np.uint8)
+            parts = cv2.applyColorMap(parts, cv2.COLORMAP_JET)
+            img_parts = (0.6 * img + 0.4 * parts).astype(np.uint8)
+            index_row = j / show_len
+            index_col = j % show_len
+            show_parts[index_row * perimg_len:(index_row + 1) * perimg_len,
+            index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_parts,
+                                                                                 (perimg_len, perimg_len))
+        cv2.imshow('show_parts', show_parts)
+
+        cv2.imshow('img', img)
+
+    heatmap_avg = heatmap_avg.transpose((1, 2, 0))
+    paf_avg = paf_avg.transpose((1, 2, 0))
+
+    if visual:
+        heatmap_show = (np.max(heatmap_avg, 2) * 255).astype(np.uint8)
+        heatmap_show = cv2.applyColorMap(heatmap_show, cv2.COLORMAP_JET)
+        img_parts = np.copy(oriImg)
+        img_parts = (0.6 * img_parts + 0.4 * heatmap_show).astype(np.uint8)
+        cv2.imshow('heatmap_show', img_parts)
+        cv2.waitKey()
 
     return heatmap_avg, paf_avg
 
