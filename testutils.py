@@ -149,6 +149,7 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params):
         # cv2.waitKey(0)
 
         imageToTest_padded = np.expand_dims(imageToTest_padded.transpose((2, 0, 1)), 0).astype(np.float32)
+        # imageToTest_padded = (imageToTest_padded.astype(np.uint8) - 127) / 255.
         imageToTest_padded = (imageToTest_padded - 127) / 255.
         # net.bind(data_shapes=[('data', imageToTest_padded.shape)], for_training=False, force_rebind=False, shared_module=net)
         net.forward(mx.io.DataBatch([mx.nd.array(imageToTest_padded)]))
@@ -170,7 +171,7 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params):
     heatmap_avg = heatmap_avg / float(octave)
     paf_avg = paf_avg / float(octave)
 
-    visual = True
+    visual = False
     if visual:
         div_num = 255.
         mean_value = 127
@@ -309,6 +310,40 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
                         float(oriImg.shape[0]) / (norm + 1) - 1, 0)
                     criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
                     criterion2 = score_with_dist_prior > 0
+
+                    if False:
+                        score_mid_norm = np.linalg.norm(score_mid, axis=2)
+                        score_crop = np.zeros(score_mid_norm.shape)
+                        crop_x1 = min(int(candA[i][0]), int(candB[j][0]))
+                        crop_x2 = max(int(candA[i][0]), int(candB[j][0]))
+                        crop_y1 = min(int(candA[i][1]), int(candB[j][1]))
+                        crop_y2 = max(int(candA[i][1]), int(candB[j][1]))
+                        score_crop[crop_y1:crop_y2, crop_x1:crop_x2] = score_mid_norm[crop_y1:crop_y2, crop_x1:crop_x2]
+                        score_crop = (score_crop * 255).astype(np.uint8)
+                        score_crop = cv2.applyColorMap(score_crop, cv2.COLORMAP_JET)
+                        show_img = np.copy(oriImg)
+                        cv2.putText(show_img, str(limbSeq[k][0]), (int(candA[i][0]), int(candA[i][1])), cv2.FONT_HERSHEY_COMPLEX, 1.0, (0, 255, 0))
+                        cv2.putText(show_img, 'score_with_dist_prior ' + str(score_with_dist_prior), (int(candA[i][0]) - 10, int(candA[i][1]) - 10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0))
+                        cv2.putText(show_img, str(limbSeq[k][1]), (int(candB[j][0]), int(candB[j][1])), cv2.FONT_HERSHEY_COMPLEX, 1.0, (0, 255, 0))
+
+                        if criterion1 and criterion2:
+                            cv2.arrowedLine(show_img, (int(candA[i][0]), int(candA[i][1])),
+                                            (int(candB[j][0]), int(candB[j][1])), (255, 255, 0), 3)
+                        else:
+                            cv2.arrowedLine(show_img, (int(candA[i][0]), int(candA[i][1])),
+                                            (int(candB[j][0]), int(candB[j][1])), (0, 0, 0), 3)
+
+                        for ci in range(0, mid_num):
+                            real_x = int(round(startend[ci][0]))
+                            real_y = int(round(startend[ci][1]))
+                            real_x_next = real_x + int(vec_x[ci] * 20)
+                            real_y_next = real_y + int(vec_y[ci] * 20)
+                            cv2.arrowedLine(show_img, (real_x, real_y), (real_x_next, real_y_next), (0, 0, 255), 1)
+
+                        show_img = (0.6 * show_img + 0.4 * score_crop).astype(np.uint8)
+                        cv2.imshow('show_img', show_img)
+                        cv2.waitKey()
+
                     if criterion1 and criterion2:
                         connection_candidate.append(
                             [i, j, score_with_dist_prior, score_with_dist_prior + candA[i][2] + candB[j][2]])

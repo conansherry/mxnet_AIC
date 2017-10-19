@@ -103,11 +103,11 @@ for f in range(start_f, end_f):
     heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params)
     candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args)
 
-    gt_batch_img = cvim_with_heatmap(oriImg, heatmap_avg, num_rows=4)
-    cv2.imshow('test1', cv2.cvtColor(gt_batch_img, cv2.COLOR_RGB2BGR))
-    gt_batch_img = cvim_with_vectormap(oriImg, paf_avg, num_rows=4)
-    cv2.imshow('test2', cv2.cvtColor(gt_batch_img, cv2.COLOR_RGB2BGR))
-    cv2.waitKey(0)
+    # gt_batch_img = cvim_with_heatmap(oriImg, heatmap_avg, num_rows=4)
+    # cv2.imshow('test1', cv2.cvtColor(gt_batch_img, cv2.COLOR_RGB2BGR))
+    # gt_batch_img = cvim_with_vectormap(oriImg, paf_avg, num_rows=4)
+    # cv2.imshow('test2', cv2.cvtColor(gt_batch_img, cv2.COLOR_RGB2BGR))
+    # cv2.waitKey(0)
 
     predictions = dict()
     predictions['image_id'] = image_ids[f]

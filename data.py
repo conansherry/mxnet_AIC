@@ -58,7 +58,7 @@ def putGaussianMaps(img, pt, stride, sigma):
     img = np.clip(img, 0, 1)
     return img
 
-def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
+def putVecMaps(entryX, entryY, centerA, centerB, stride, thre, count):
     centerA = centerA / float(stride)
     centerA_x = centerA[0]
     centerA_y = centerA[1]
@@ -67,7 +67,7 @@ def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
     centerB_y = centerB[1]
     grid_x = entryX.shape[1]
     grid_y = entryX.shape[0]
-    bc = centerA - centerB
+    bc = centerB - centerA
     min_x = max(int(round(min(centerA_x, centerB_x) - thre)), 0)
     max_x = min(int(round(max(centerA_x, centerB_x) + thre)), grid_x)
     min_y = max(int(round(min(centerA_y, centerB_y) - thre)), 0)
@@ -78,7 +78,6 @@ def putVecMaps(entryX, entryY, centerA, centerB, stride, thre):
     bc = bc / norm_bc
     bc_x = bc[0]
     bc_y = bc[1]
-    count = np.zeros((grid_y, grid_x))
 
     for g_y in range(min_y, max_y):
         for g_x in range(min_x, max_x):
@@ -307,12 +306,15 @@ class FileIter(DataIter):
         target = np.zeros((npaf + nparts + 1, self.out_res, self.out_res))
         mid_1 = [13, 6, 7, 13, 9, 10, 13, 0, 1, 13, 3, 4, 13]
         mid_2 = [ 6, 7, 8,  9,10, 11,  0, 1, 2,  3, 4, 5, 12]
-        for i in range(human_count):
-            for j in range(npaf / 2):
+        # correspond
+        #       [15, 17,19,21,23, 25, 27,29,31, 33,35,37, 39]
+        for j in range(npaf / 2):
+            count = np.zeros((self.out_res, self.out_res), dtype=np.int32)
+            for i in range(human_count):
                 if int(pts[i][mid_1[j], 2]) != 3 and int(pts[i][mid_2[j], 2]) != 3:
                     target[2 * j], target[2 * j + 1] = \
                         putVecMaps(target[2 * j], target[2 * j + 1],
-                                   pts[i][mid_1[j], :2], pts[i][mid_2[j], :2], self.stride, self.thre)
+                                   pts[i][mid_1[j], :2], pts[i][mid_2[j], :2], self.stride, self.thre, count)
 
         for i in range(human_count):
             for j in range(nparts):
