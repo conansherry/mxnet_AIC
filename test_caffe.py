@@ -23,7 +23,7 @@ parser.add_argument('--o','--outputjson', dest='outputjson',
                     default='outputjson.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
-parser.add_argument('--e', default=5000, type=int, metavar='N',
+parser.add_argument('--e', default=10, type=int, metavar='N',
                     help='end test number')
 parser.add_argument('-v', '--visual', dest='visual', action='store_true',
                     help='show results')
@@ -66,8 +66,8 @@ start_f = min(max(args.s, 0), num_test)
 end_f = min(max(args.e, start_f), num_test)
 
 caffe.set_mode_gpu()
-prototxt = r'model/vgg_test_network.prototxt'
-caffemodel = r'model/vgg_test_network.caffemodel'
+prototxt = r'model_convert/vgg_test_network.prototxt'
+caffemodel = r'model_convert/vgg_test_network.caffemodel'
 net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
 res = []

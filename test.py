@@ -10,6 +10,7 @@ import cv2
 import mxnet as mx
 from testutils import *
 from utils import *
+import random
 
 import logging
 # set up logger
@@ -27,7 +28,7 @@ parser.add_argument('--o','--outputjson', dest='outputjson',
                     default='outputjson.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
-parser.add_argument('--e', default=5000, type=int, metavar='N',
+parser.add_argument('--e', default=5, type=int, metavar='N',
                     help='end test number')
 parser.add_argument('-v', '--visual', dest='visual', action='store_true',
                     help='show results')
@@ -60,6 +61,7 @@ anno_file = os.path.join(args.dataset, 'keypoint_validation_annotations_20170911
 if 'test' not in args.dataset and os.path.exists(anno_file):  # VAL MODE
     anno = json.load(open(anno_file, 'r'))
     image_ids = [a['image_id'] for a in anno]
+    keypoints_anno = [a['keypoint_annotations'] for a in anno]
     image_files = [os.path.join(args.dataset, 'keypoint_validation_images_20170911', f+'.jpg') for f in image_ids]
 else:  # IMAGE MODE
     image_files = glob.glob(os.path.join(args.dataset, '*.jpg'))
@@ -99,12 +101,14 @@ mod.bind([('data', (1, 3, 368, 368))], for_training=False, force_rebind=True)
 mod.init_params(arg_params=arg_params, aux_params=aux_params)
 
 res = []
+pic_index = range(len(image_files))
+random.shuffle(pic_index)
 for f in range(start_f, end_f):
     tic = time.time()
-    oriImg = cv2.imread(image_files[f])
+    oriImg = cv2.imread(image_files[pic_index[f]])
 
-    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params, args)
-    candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args)
+    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params, args, keypoints_anno[pic_index[f]])
+    candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args, keypoints_anno[pic_index[f]])
 
     # gt_batch_img = cvim_with_heatmap(oriImg, heatmap_avg, num_rows=4)
     # cv2.imshow('test1', cv2.cvtColor(gt_batch_img, cv2.COLOR_RGB2BGR))
@@ -113,7 +117,7 @@ for f in range(start_f, end_f):
     # cv2.waitKey(0)
 
     predictions = dict()
-    predictions['image_id'] = image_ids[f]
+    predictions['image_id'] = image_ids[pic_index[f]]
     predictions['keypoint_annotations'] = dict()
     for p in range(len(subset)):
         temp = np.zeros(3 * 14)

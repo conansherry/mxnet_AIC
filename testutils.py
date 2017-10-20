@@ -117,7 +117,7 @@ def padRightDownCorner(img, stride, padValue=127):
 
     return img_padded, pad
 
-def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args):
+def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args, keypoint_anno):
     h = oriImg.shape[0]
     w = oriImg.shape[1]
     boxsize = param.boxsize
@@ -175,7 +175,7 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args):
     heatmap_avg = heatmap_avg / float(octave)
     paf_avg = paf_avg / float(octave)
 
-    visual = True
+    visual = False
     if visual:
         npaf = 26
         nparts = 14
@@ -266,7 +266,7 @@ def findPeaks(map, thre):
         peaks_with_score = [(xyscore[i][0].astype(int), xyscore[i][1].astype(int), xyscore[i][2]) for i in vaildIdx]
     return peaks_with_score
 
-def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
+def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param, keypoint_anno):
     all_peaks = []
     peak_counter = 0
 
@@ -311,7 +311,7 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
                     score_with_dist_prior = sum(score_midpts) / len(score_midpts) + min(
                         float(oriImg.shape[0]) / (norm + 1) - 1, 0)
                     # criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
-                    criterion1 = (sum(score_midpts) / mid_num) > param.thre2
+                    criterion1 = (sum(score_midpts) / mid_num) > 0.05
                     criterion2 = score_with_dist_prior > 0
 
                     if False:
@@ -415,7 +415,7 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
     # delete some rows of subset which has few parts occur
     deleteIdx = []
     for i in range(len(subset)):
-        if subset[i][-1] < 2 or subset[i][-2] / subset[i][-1] < 0.2:
+        if subset[i][-1] < 3 or subset[i][-2] / subset[i][-1] < 0.2:
             deleteIdx.append(i)
     subset = np.delete(subset, deleteIdx, axis=0)
 
@@ -441,7 +441,13 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
                 polygon = cv2.ellipse2Poly((int(mY), int(mX)), (int(length / 2), stickwidth), int(angle), 0, 360, 1)
                 cv2.fillConvexPoly(cur_canvas, polygon, colors[i])
                 canvas = cv2.addWeighted(canvas, 0.4, cur_canvas, 0.6, 0)
-        # cv2.imwrite('result.png', canvas)
+
+        for human in keypoint_anno:
+            keypoints = keypoint_anno[human]
+            for i in range(14):
+                if keypoints[i * 3 + 2] != 2:
+                    cv2.circle(canvas, (keypoints[i * 3], keypoints[i * 3 + 1]), 1, (0, 255, 0), 10)
+
         cv2.imshow('result', canvas)
         cv2.waitKey(0)
 

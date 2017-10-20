@@ -310,7 +310,8 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
                     score_midpts = np.multiply(vec_x, vec[0]) + np.multiply(vec_y, vec[1])
                     score_with_dist_prior = sum(score_midpts) / len(score_midpts) + min(
                         float(oriImg.shape[0]) / (norm + 1) - 1, 0)
-                    criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
+                    # criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
+                    criterion1 = (sum(score_midpts) / mid_num) > 0.1
                     criterion2 = score_with_dist_prior > 0
 
                     if False:
@@ -414,7 +415,7 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
     # delete some rows of subset which has few parts occur
     deleteIdx = []
     for i in range(len(subset)):
-        if subset[i][-1] < 3 or subset[i][-2] / subset[i][-1] < 0.2:
+        if subset[i][-1] < 2 or subset[i][-2] / subset[i][-1] < 0.2:
             deleteIdx.append(i)
     subset = np.delete(subset, deleteIdx, axis=0)
 
