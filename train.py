@@ -93,7 +93,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
 
     mod.fit(train_data, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback,
             eval_metric=eval_metrics,
-            optimizer='adam', optimizer_params=optimizer_params,
+            optimizer='sgd', optimizer_params=optimizer_params,
             arg_params=arg_params, aux_params=aux_params, num_epoch=100)
 
 def parse_args():
