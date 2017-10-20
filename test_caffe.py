@@ -1,15 +1,11 @@
 import os
-os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 import time
 import argparse
 import glob
 import json
-import symbol_resnet
-import symbol_vgg
 import cv2
-import mxnet as mx
-from testutils import *
-from utils import *
+import caffe
+from testutils_caffe import *
 
 import logging
 # set up logger
@@ -18,7 +14,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 parser = argparse.ArgumentParser(description='For AIC Champion Test')
-parser.add_argument('--network', default='vgg', help='network type', type=str)
+parser.add_argument('--network', metavar='NET', help='path to network file')
 parser.add_argument('--prefix', help='model to test with', type=str)
 parser.add_argument('--epoch', help='model to test with', type=int)
 parser.add_argument('--gpu', help='GPU device to test with', default=1, type=int)
@@ -41,7 +37,7 @@ parser.add_argument('--ending_range', default=1.2, type=float, metavar='F',
                     help='end scale')
 parser.add_argument('--thre1', default=0.1, type=float, metavar='F',
                     help='threshold for peak')
-parser.add_argument('--thre2', default=0.1, type=float, metavar='F',
+parser.add_argument('--thre2', default=0.05, type=float, metavar='F',
                     help='threshold for vector')
 parser.add_argument('--thre3', default=0.5, type=float, metavar='F',
                     help='threshold for subset')
@@ -69,41 +65,17 @@ num_test = len(image_files)
 start_f = min(max(args.s, 0), num_test)
 end_f = min(max(args.e, start_f), num_test)
 
-ctx = mx.gpu(args.gpu)
-if args.network == 'vgg':
-    sym = symbol_vgg.get_vgg_test()
-elif args.network == 'resnet':
-    sym = symbol_resnet.get_resnet_test()
-arg_params, aux_params = load_param(args.prefix, args.epoch, convert=True, ctx=ctx)
-
-# infer shape
-data_shape_dict = {'data': (1, 3, 368, 368)}
-arg_shape, _, aux_shape = sym.infer_shape(**data_shape_dict)
-arg_shape_dict = dict(zip(sym.list_arguments(), arg_shape))
-aux_shape_dict = dict(zip(sym.list_auxiliary_states(), aux_shape))
-
-# check parameters
-for k in sym.list_arguments():
-    if k in data_shape_dict:
-        continue
-    assert k in arg_params, k + ' not initialized'
-    assert arg_params[k].shape == arg_shape_dict[k], \
-        'shape inconsistent for ' + k + ' inferred ' + str(arg_shape_dict[k]) + ' provided ' + str(arg_params[k].shape)
-for k in sym.list_auxiliary_states():
-    assert k in aux_params, k + ' not initialized'
-    assert aux_params[k].shape == aux_shape_dict[k], \
-        'shape inconsistent for ' + k + ' inferred ' + str(aux_shape_dict[k]) + ' provided ' + str(aux_params[k].shape)
-
-mod = mx.mod.Module(sym, data_names=('data', ), label_names=None, logger=logger, context=ctx)
-mod.bind([('data', (1, 3, 368, 368))], for_training=False, force_rebind=True)
-mod.init_params(arg_params=arg_params, aux_params=aux_params)
+caffe.set_mode_gpu()
+prototxt = r'model/vgg_test_network.prototxt'
+caffemodel = r'model/vgg_test_network.caffemodel'
+net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
 res = []
 for f in range(start_f, end_f):
     tic = time.time()
     oriImg = cv2.imread(image_files[f])
 
-    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params, args)
+    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, net, args)
     candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args)
 
     # gt_batch_img = cvim_with_heatmap(oriImg, heatmap_avg, num_rows=4)

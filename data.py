@@ -209,7 +209,7 @@ class FileIter(DataIter):
             R[1, 2] += bbox[3] / 2 - center[1]
 
             img_temp2 = cv2.warpAffine(img_temp, R, bbox[2:4], flags=cv2.INTER_CUBIC+cv2.BORDER_CONSTANT,
-                                       borderValue=(127, 127, 127))
+                                       borderValue=(self.mean_value, self.mean_value, self.mean_value))
 
             for i in range(human_count):
                 temp = np.ones((nparts, 3))
@@ -242,7 +242,7 @@ class FileIter(DataIter):
             R[1, 2] += bbox[3] / 2 - center[1] + y_offset
 
             img_temp3 = cv2.warpAffine(img_temp2, R, bbox[2:4], flags=cv2.INTER_CUBIC + cv2.BORDER_CONSTANT,
-                                       borderValue=(127, 127, 127))
+                                       borderValue=(self.mean_value, self.mean_value, self.mean_value))
 
             for i in range(human_count):
                 temp = np.ones((nparts, 3))
@@ -282,7 +282,7 @@ class FileIter(DataIter):
             dsize = (int(round(float(img_src.shape[1]) * scale)), int(round(float(img_src.shape[0]) * scale)))
             img_aug = cv2.resize(img_src, dsize, interpolation=cv2.INTER_CUBIC)
             img_aug = cv2.copyMakeBorder(img_aug, 0, self.inp_res-img_aug.shape[0], 0, self.inp_res-img_aug.shape[1],
-                                         cv2.BORDER_CONSTANT, value=(127, 127, 127))
+                                         cv2.BORDER_CONSTANT, value=(self.mean_value, self.mean_value, self.mean_value))
             for i in range(human_count):
                 pts[i][:, :2] = pts[i][:, :2] * scale
                 rect[i] = rect[i] * scale

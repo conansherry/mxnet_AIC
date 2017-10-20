@@ -64,7 +64,7 @@ def get_vgg_conv(data):
         data=relu4_2, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_3")
     relu4_3 = mx.symbol.Activation(data=conv4_3, act_type="relu", name="relu4_3")
 
-    return relu4_3
+    return relu2_2, relu3_3, relu4_3
 
 def get_stage_1(conv_feat):
     conv5_1_CPM_L1 = mx.symbol.Convolution(name='conv5_1_CPM_L1', data=conv_feat, num_filter=128, pad=(1, 1),
@@ -154,7 +154,7 @@ def get_vgg_train():
                                                    name='partaffinityglabel_reshape')
     heatmaplabel_reshape = mx.symbol.Reshape(data=heatmaplabel, shape=(-1,), name='heatmaplabel_reshape')
 
-    relu4_3 = get_vgg_conv(data)
+    relu2_2, relu3_3, relu4_3 = get_vgg_conv(data)
 
     conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3, num_filter=256, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
     relu4_4_CPM = mx.symbol.Activation(name='relu4_4_CPM', data=conv4_4_CPM, act_type='relu')
@@ -228,14 +228,15 @@ def get_vgg_train():
                              stage3_loss_l1, stage3_loss_l2,
                              stage4_loss_l1, stage4_loss_l2,
                              stage5_loss_l1, stage5_loss_l2,
-                             stage6_loss_l1, stage6_loss_l2])
-                             # , mx.sym.BlockGrad(data), mx.sym.BlockGrad(stage6_l1), mx.sym.BlockGrad(stage6_l2)])
+                             stage6_loss_l1, stage6_loss_l2#])
+                             , mx.sym.BlockGrad(data), mx.sym.BlockGrad(stage6_l1), mx.sym.BlockGrad(stage6_l2),
+                             mx.sym.BlockGrad(relu4_5_CPM)])
     return group
 
 def get_vgg_test():
     data = mx.symbol.Variable(name="data")
 
-    relu4_3 = get_vgg_conv(data)
+    relu2_2, relu3_3, relu4_3 = get_vgg_conv(data)
 
     conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3, num_filter=256, pad=(1, 1), kernel=(3, 3),
                                         stride=(1, 1), no_bias=False)
@@ -256,6 +257,7 @@ def get_vgg_test():
 
 if __name__ == "__main__":
     network = get_vgg_test()
+    network.save('vgg_test_network.json')
 
     tmp = mx.viz.plot_network(network, shape={'data': (1, 3, 368, 368)})
     tmp.view()

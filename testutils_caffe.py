@@ -117,7 +117,7 @@ def padRightDownCorner(img, stride, padValue=127):
 
     return img_padded, pad
 
-def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args):
+def multiscale_cnn_forward(oriImg, net, param):
     h = oriImg.shape[0]
     w = oriImg.shape[1]
     boxsize = param.boxsize
@@ -125,10 +125,7 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args):
     ending_range = param.ending_range
     octave = param.octave
     stride = param.stride
-    if args.network == 'vgg':
-        padValue = 127
-    else:
-        padValue = 127
+    padValue = param.padValue
 
     starting_scale = float(boxsize) / float(h) * starting_range
     ending_scale = float(boxsize) / float(h) * ending_range
@@ -153,15 +150,16 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args):
 
         imageToTest_padded = np.expand_dims(imageToTest_padded.transpose((2, 0, 1)), 0).astype(np.float32)
         # imageToTest_padded = (imageToTest_padded.astype(np.uint8) - 127) / 255.
-        if args.network == 'vgg':
-            imageToTest_padded = (imageToTest_padded - 127) / 255.
-        # net.bind(data_shapes=[('data', imageToTest_padded.shape)], for_training=False, force_rebind=False, shared_module=net)
-        net.forward(mx.io.DataBatch([mx.nd.array(imageToTest_padded)]))
+        imageToTest_padded = (imageToTest_padded - 127) / 255.
 
-        outputs = dict(zip(net.output_names, net.get_outputs()))
-        output1 = outputs['Mconv7_stage6_L1_output'].asnumpy()[0]
+        net.blobs['data'].reshape(*imageToTest_padded.shape)
+        net.reshape()
+        forward_kwargs = {'data': imageToTest_padded}
+        blobs_out = net.forward(**forward_kwargs)
+
+        output1 = blobs_out['Mconv7_stage6_L1'][0]
         resize_output1 = np.zeros((output1.shape[0], h, w))
-        output2 = outputs['Mconv7_stage6_L2_output'].asnumpy()[0]
+        output2 = blobs_out['Mconv7_stage6_L2'][0]
         resize_output2 = np.zeros((output2.shape[0], h, w))
 
         for i in range(output1.shape[0]):
@@ -175,8 +173,10 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args):
     heatmap_avg = heatmap_avg / float(octave)
     paf_avg = paf_avg / float(octave)
 
-    visual = True
+    visual = False
     if visual:
+        div_num = 255.
+        mean_value = 127
         npaf = 26
         nparts = 14
         stride = 8
@@ -310,8 +310,7 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
                     score_midpts = np.multiply(vec_x, vec[0]) + np.multiply(vec_y, vec[1])
                     score_with_dist_prior = sum(score_midpts) / len(score_midpts) + min(
                         float(oriImg.shape[0]) / (norm + 1) - 1, 0)
-                    # criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
-                    criterion1 = (sum(score_midpts) / mid_num) > param.thre2
+                    criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
                     criterion2 = score_with_dist_prior > 0
 
                     if False:
@@ -415,7 +414,7 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param):
     # delete some rows of subset which has few parts occur
     deleteIdx = []
     for i in range(len(subset)):
-        if subset[i][-1] < 2 or subset[i][-2] / subset[i][-1] < 0.2:
+        if subset[i][-1] < 3 or subset[i][-2] / subset[i][-1] < 0.2:
             deleteIdx.append(i)
     subset = np.delete(subset, deleteIdx, axis=0)
 

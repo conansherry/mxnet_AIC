@@ -9,6 +9,8 @@ class AICRMSE(mx.metric.EvalMetric):
         self.batch_size = batch_size
         super(AICRMSE, self).__init__(name + '_stage_' + str(stage) + '_L' + str(branch))
 
+        self.div_num = 1.
+        self.mean_value = 0
         self.div_num = 255.
         self.mean_value = 127
         self.npaf = 26
@@ -18,7 +20,7 @@ class AICRMSE(mx.metric.EvalMetric):
     def update(self, labels, preds):
 
         # show data
-        if False and self.stage == 1 and self.branch == 1:
+        if True and self.stage == 1 and self.branch == 1:
             for i in range(preds[12].asnumpy().shape[0]):
                 data = preds[12].asnumpy()[i]
                 label = np.concatenate((preds[13].asnumpy()[i], preds[14].asnumpy()[i]), axis=0)
@@ -60,6 +62,15 @@ class AICRMSE(mx.metric.EvalMetric):
                 parts = cv2.applyColorMap(parts, cv2.COLORMAP_JET)
                 img_parts = (0.6 * img + 0.4 * parts).astype(np.uint8)
                 cv2.imshow('img_parts_bg', img_parts)
+
+                internal_features = preds[15].asnumpy()[i]
+                max_v = np.max(internal_features)
+                min_v = np.min(internal_features)
+                internal_features = (internal_features - min_v) / (max_v - min_v)
+                internal_features = (np.max(internal_features, axis=0) * 255).astype(np.uint8)
+                internal_features = cv2.resize(internal_features, (368, 368))
+                internal_features = cv2.applyColorMap(internal_features, cv2.COLORMAP_JET)
+                cv2.imshow('CPM_feature', internal_features)
 
                 cv2.imshow('img', img)
                 cv2.waitKey()
