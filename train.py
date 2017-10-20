@@ -89,7 +89,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
             eval_metrics.add(AICRMSE(train_data.batch_size / len(ctx), stage=stage, branch=branch))
 
     # optimizer
-    optimizer_params = {'learning_rate': lr}
+    optimizer_params = {'learning_rate': lr, 'lr_scheduler': mx.lr_scheduler.FactorScheduler(210000, factor=0.1)}
 
     mod.fit(train_data, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback,
             eval_metric=eval_metrics,

@@ -20,7 +20,7 @@ class AICRMSE(mx.metric.EvalMetric):
     def update(self, labels, preds):
 
         # show data
-        if True and self.stage == 1 and self.branch == 1:
+        if False and self.stage == 1 and self.branch == 1:
             for i in range(preds[12].asnumpy().shape[0]):
                 data = preds[12].asnumpy()[i]
                 label = np.concatenate((preds[13].asnumpy()[i], preds[14].asnumpy()[i]), axis=0)

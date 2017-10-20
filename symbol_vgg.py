@@ -228,9 +228,9 @@ def get_vgg_train():
                              stage3_loss_l1, stage3_loss_l2,
                              stage4_loss_l1, stage4_loss_l2,
                              stage5_loss_l1, stage5_loss_l2,
-                             stage6_loss_l1, stage6_loss_l2#])
-                             , mx.sym.BlockGrad(data), mx.sym.BlockGrad(stage6_l1), mx.sym.BlockGrad(stage6_l2),
-                             mx.sym.BlockGrad(relu4_5_CPM)])
+                             stage6_loss_l1, stage6_loss_l2])
+                             # , mx.sym.BlockGrad(data), mx.sym.BlockGrad(stage6_l1), mx.sym.BlockGrad(stage6_l2),
+                             # mx.sym.BlockGrad(relu4_5_CPM)])
     return group
 
 def get_vgg_test():
