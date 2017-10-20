@@ -41,7 +41,7 @@ class AICRMSE(mx.metric.EvalMetric):
                     index_col = j % show_width
                     show_pafs[index_row * perimg_len:(index_row + 1) * perimg_len,
                     index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_pafs, (perimg_len, perimg_len))
-                cv2.imshow('show_pafs', show_pafs)
+                cv2.imshow('show_pafs_pred', show_pafs)
 
                 show_len = 4
                 show_parts = np.zeros((show_len * perimg_len, show_len * perimg_len, 3), dtype=np.uint8)
@@ -55,13 +55,13 @@ class AICRMSE(mx.metric.EvalMetric):
                     show_parts[index_row * perimg_len:(index_row + 1) * perimg_len,
                     index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_parts,
                                                                                          (perimg_len, perimg_len))
-                cv2.imshow('show_parts', show_parts)
+                cv2.imshow('show_parts_pred', show_parts)
 
                 parts = (label[self.npaf + self.nparts] * 255).astype(np.uint8)
                 parts = cv2.resize(parts, (0, 0), fx=self.stride, fy=self.stride)
                 parts = cv2.applyColorMap(parts, cv2.COLORMAP_JET)
                 img_parts = (0.6 * img + 0.4 * parts).astype(np.uint8)
-                cv2.imshow('img_parts_bg', img_parts)
+                cv2.imshow('img_parts_bg_pred', img_parts)
 
                 internal_features = preds[15].asnumpy()[i]
                 max_v = np.max(internal_features)
@@ -72,7 +72,7 @@ class AICRMSE(mx.metric.EvalMetric):
                 internal_features = cv2.applyColorMap(internal_features, cv2.COLORMAP_JET)
                 cv2.imshow('CPM_feature', internal_features)
 
-                cv2.imshow('img', img)
+                cv2.imshow('img_pred', img)
                 cv2.waitKey()
 
         if self.branch == 1:

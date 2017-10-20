@@ -10,6 +10,7 @@ import symbol_resnet
 from data import FileIter
 from metric import AICRMSE
 from utils import *
+from module import CustomModule
 
 import logging
 # set up logger
@@ -78,7 +79,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
         print('fix params ' + str(fixed_param_names))
     else:
         fixed_param_names = None
-    mod = mx.mod.Module(symbol=sym, data_names=data_names, label_names=label_names, context=ctx, logger=logger, fixed_param_names=fixed_param_names)
+    mod = CustomModule(symbol=sym, data_names=data_names, label_names=label_names, context=ctx, logger=logger, fixed_param_names=fixed_param_names)
 
     batch_end_callback = mx.callback.Speedometer(train_data.batch_size, frequent=10, auto_reset=False)
     epoch_end_callback = mx.callback.do_checkpoint(prefix)
@@ -89,7 +90,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
             eval_metrics.add(AICRMSE(train_data.batch_size / len(ctx), stage=stage, branch=branch))
 
     # optimizer
-    optimizer_params = {'learning_rate': lr, 'lr_scheduler': mx.lr_scheduler.FactorScheduler(210000, factor=0.1)}
+    optimizer_params = {'learning_rate': lr, 'lr_scheduler': mx.lr_scheduler.FactorScheduler(10000, factor=0.1)}
 
     mod.fit(train_data, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback,
             eval_metric=eval_metrics,

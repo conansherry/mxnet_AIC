@@ -28,7 +28,7 @@ parser.add_argument('--o','--outputjson', dest='outputjson',
                     default='outputjson.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
-parser.add_argument('--e', default=5, type=int, metavar='N',
+parser.add_argument('--e', default=10, type=int, metavar='N',
                     help='end test number')
 parser.add_argument('-v', '--visual', dest='visual', action='store_true',
                     help='show results')
@@ -57,12 +57,12 @@ parser.add_argument('--padValue', default=127, type=int, metavar='N',
 args = parser.parse_args()
 
 # ImageFile
-anno_file = os.path.join(args.dataset, 'keypoint_validation_annotations_20170911.json')
+anno_file = os.path.join(args.dataset, 'keypoint_train_annotations_20170909.json')
 if 'test' not in args.dataset and os.path.exists(anno_file):  # VAL MODE
     anno = json.load(open(anno_file, 'r'))
     image_ids = [a['image_id'] for a in anno]
     keypoints_anno = [a['keypoint_annotations'] for a in anno]
-    image_files = [os.path.join(args.dataset, 'keypoint_validation_images_20170911', f+'.jpg') for f in image_ids]
+    image_files = [os.path.join(args.dataset, 'keypoint_train_images_20170902', f+'.jpg') for f in image_ids]
 else:  # IMAGE MODE
     image_files = glob.glob(os.path.join(args.dataset, '*.jpg'))
     image_ids = [os.path.basename(path)[:-4] for path in image_files]

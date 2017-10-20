@@ -298,6 +298,12 @@ class FileIter(DataIter):
                         cv2.imshow("board test", img_aug)
                         cv2.waitKey(0)
 
+        # for i in range(human_count):
+        #     for j in range(14):
+        #         keypoints = pts[i][j, :]
+        #         if keypoints[2] != 3:
+        #             cv2.circle(img_aug, (int(keypoints[0]), int(keypoints[1])), 1, (0, 255, 0), 2)
+
         # copy transformed img (img_aug) into transformed_data, do the mean-subtraction here
         # img_aug is not float32, bug!!
         transformed_data = (img_aug.transpose((2, 0, 1)).astype(np.float32) - self.mean_value) / self.div_num
