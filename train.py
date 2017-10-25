@@ -53,17 +53,23 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
             print('reset not in model params ' + k)
             arg_params[k] = mx.random.normal(0, 0.01, shape=arg_shape_dict[k])
         assert k in arg_params, k + ' not initialized'
-        assert arg_params[k].shape == arg_shape_dict[k], \
-            'shape inconsistent for ' + k + ' inferred ' + str(arg_shape_dict[k]) + ' provided ' + str(
-                arg_params[k].shape)
+        if arg_params[k].shape != arg_shape_dict[k]:
+            arg_params[k] = mx.random.normal(0, 0.01, shape=arg_shape_dict[k])
+            print 'need init', k
+        # assert arg_params[k].shape == arg_shape_dict[k], \
+        #     'shape inconsistent for ' + k + ' inferred ' + str(arg_shape_dict[k]) + ' provided ' + str(
+        #         arg_params[k].shape)
     for k in sym.list_auxiliary_states():
         if k not in aux_params:
             print('reset not in model params ' + k)
             aux_params[k] = mx.nd.zeros(shape=aux_shape_dict[k])
         assert k in aux_params, k + ' not initialized'
-        assert aux_params[k].shape == aux_shape_dict[k], \
-            'shape inconsistent for ' + k + ' inferred ' + str(aux_shape_dict[k]) + ' provided ' + str(
-                aux_params[k].shape)
+        if aux_params[k].shape != aux_shape_dict[k]:
+            aux_params[k] = mx.nd.zeros(shape=aux_shape_dict[k])
+            print 'need init', k
+        # assert aux_params[k].shape == aux_shape_dict[k], \
+        #     'shape inconsistent for ' + k + ' inferred ' + str(aux_shape_dict[k]) + ' provided ' + str(
+        #         aux_params[k].shape)
 
     data_names = [k[0] for k in train_data.provide_data]
     label_names = [k[0] for k in train_data.provide_label]
@@ -78,7 +84,15 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
                         fixed_param_names.append(name)
         print('fix params ' + str(fixed_param_names))
     else:
-        fixed_param_names = None
+        fixed_param_prefix = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 'conv3_1', 'conv3_2', 'conv3_3', 'conv3_4', 'conv4_1', 'conv4_2', 'conv4_3', 'conv4_4']
+        fixed_param_prefix = []
+        fixed_param_names = list()
+        if fixed_param_prefix is not None:
+            for name in sym.list_arguments():
+                for prefix_ in fixed_param_prefix:
+                    if prefix_ in name:
+                        fixed_param_names.append(name)
+        print('fix params ' + str(fixed_param_names))
     mod = CustomModule(symbol=sym, data_names=data_names, label_names=label_names, context=ctx, logger=logger, fixed_param_names=fixed_param_names)
 
     batch_end_callback = mx.callback.Speedometer(train_data.batch_size, frequent=10, auto_reset=False)
@@ -90,7 +104,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
             eval_metrics.add(AICRMSE(train_data.batch_size / len(ctx), stage=stage, branch=branch))
 
     # optimizer
-    optimizer_params = {'learning_rate': lr, 'lr_scheduler': mx.lr_scheduler.FactorScheduler(10000, factor=0.1)}
+    optimizer_params = {'learning_rate': lr, 'lr_scheduler': mx.lr_scheduler.FactorScheduler(10000, factor=0.3)}
 
     mod.fit(train_data, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback,
             eval_metric=eval_metrics,

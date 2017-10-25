@@ -51,8 +51,11 @@ def get_vgg_conv(data):
     conv3_3 = mx.symbol.Convolution(
         data=relu3_2, kernel=(3, 3), pad=(1, 1), num_filter=256, workspace=2048, name="conv3_3")
     relu3_3 = mx.symbol.Activation(data=conv3_3, act_type="relu", name="relu3_3")
+    conv3_4 = mx.symbol.Convolution(
+        data=relu3_3, kernel=(3, 3), pad=(1, 1), num_filter=256, workspace=2048, name="conv3_4")
+    relu3_4 = mx.symbol.Activation(data=conv3_4, act_type="relu", name="relu3_4")
     pool3 = mx.symbol.Pooling(
-        data=relu3_3, pool_type="max", kernel=(2, 2), stride=(2, 2), name="pool3")
+        data=relu3_4, pool_type="max", kernel=(2, 2), stride=(2, 2), name="pool3")
     # group 4
     conv4_1 = mx.symbol.Convolution(
         data=pool3, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_1")
@@ -60,11 +63,11 @@ def get_vgg_conv(data):
     conv4_2 = mx.symbol.Convolution(
         data=relu4_1, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_2")
     relu4_2 = mx.symbol.Activation(data=conv4_2, act_type="relu", name="relu4_2")
-    conv4_3 = mx.symbol.Convolution(
-        data=relu4_2, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_3")
-    relu4_3 = mx.symbol.Activation(data=conv4_3, act_type="relu", name="relu4_3")
+    # conv4_3 = mx.symbol.Convolution(
+    #     data=relu4_2, kernel=(3, 3), pad=(1, 1), num_filter=512, workspace=2048, name="conv4_3")
+    # relu4_3 = mx.symbol.Activation(data=conv4_3, act_type="relu", name="relu4_3")
 
-    return relu2_2, relu3_3, relu4_3
+    return relu2_2, relu3_4, relu4_2
 
 def get_stage_1(conv_feat):
     conv5_1_CPM_L1 = mx.symbol.Convolution(name='conv5_1_CPM_L1', data=conv_feat, num_filter=128, pad=(1, 1),
@@ -154,20 +157,20 @@ def get_vgg_train():
                                                    name='partaffinityglabel_reshape')
     heatmaplabel_reshape = mx.symbol.Reshape(data=heatmaplabel, shape=(-1,), name='heatmaplabel_reshape')
 
-    relu2_2, relu3_3, relu4_3 = get_vgg_conv(data)
+    relu2_2, relu3_4, relu4_2 = get_vgg_conv(data)
 
-    conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3, num_filter=256, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
+    conv4_3_CPM = mx.symbol.Convolution(name='conv4_3_CPM', data=relu4_2, num_filter=256, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
+    relu4_3_CPM = mx.symbol.Activation(name='relu4_3_CPM', data=conv4_3_CPM, act_type='relu')
+    conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3_CPM, num_filter=128, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
     relu4_4_CPM = mx.symbol.Activation(name='relu4_4_CPM', data=conv4_4_CPM, act_type='relu')
-    conv4_5_CPM = mx.symbol.Convolution(name='conv4_5_CPM', data=relu4_4_CPM, num_filter=128, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
-    relu4_5_CPM = mx.symbol.Activation(name='relu4_5_CPM', data=conv4_5_CPM, act_type='relu')
 
-    stage1_l1, stage1_l2 = get_stage_1(relu4_5_CPM)
+    stage1_l1, stage1_l2 = get_stage_1(relu4_4_CPM)
 
-    stage2_l1, stage2_l2 = get_stage_n(relu4_5_CPM, stage1_l1, stage1_l2, 2)
-    stage3_l1, stage3_l2 = get_stage_n(relu4_5_CPM, stage2_l1, stage2_l2, 3)
-    stage4_l1, stage4_l2 = get_stage_n(relu4_5_CPM, stage3_l1, stage3_l2, 4)
-    stage5_l1, stage5_l2 = get_stage_n(relu4_5_CPM, stage4_l1, stage4_l2, 5)
-    stage6_l1, stage6_l2 = get_stage_n(relu4_5_CPM, stage5_l1, stage5_l2, 6)
+    stage2_l1, stage2_l2 = get_stage_n(relu4_4_CPM, stage1_l1, stage1_l2, 2)
+    stage3_l1, stage3_l2 = get_stage_n(relu4_4_CPM, stage2_l1, stage2_l2, 3)
+    stage4_l1, stage4_l2 = get_stage_n(relu4_4_CPM, stage3_l1, stage3_l2, 4)
+    stage5_l1, stage5_l2 = get_stage_n(relu4_4_CPM, stage4_l1, stage4_l2, 5)
+    stage6_l1, stage6_l2 = get_stage_n(relu4_4_CPM, stage5_l1, stage5_l2, 6)
 
     ##################
     stage1_l1_reshape = mx.symbol.Reshape(data=stage1_l1, shape=(-1,), name='stage1_l1_reshape')
