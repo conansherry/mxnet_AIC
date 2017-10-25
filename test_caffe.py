@@ -68,6 +68,8 @@ end_f = min(max(args.e, start_f), num_test)
 caffe.set_mode_gpu()
 prototxt = r'model_convert/vgg_test_network.prototxt'
 caffemodel = r'model_convert/vgg_test_network.caffemodel'
+prototxt = r'model_convert/pose_deploy_coco.prototxt'
+caffemodel = r'model_convert/pose_coco_iter_2000.caffemodel'
 net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
 res = []

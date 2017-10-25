@@ -150,7 +150,8 @@ def multiscale_cnn_forward(oriImg, net, param):
 
         imageToTest_padded = np.expand_dims(imageToTest_padded.transpose((2, 0, 1)), 0).astype(np.float32)
         # imageToTest_padded = (imageToTest_padded.astype(np.uint8) - 127) / 255.
-        imageToTest_padded = (imageToTest_padded - 127) / 255.
+        # imageToTest_padded = (imageToTest_padded - 127) / 255.
+        imageToTest_padded = (imageToTest_padded - 128) / 256.
 
         net.blobs['data'].reshape(*imageToTest_padded.shape)
         net.reshape()
@@ -160,6 +161,7 @@ def multiscale_cnn_forward(oriImg, net, param):
         output1 = blobs_out['Mconv7_stage6_L1'][0]
         resize_output1 = np.zeros((output1.shape[0], h, w))
         output2 = blobs_out['Mconv7_stage6_L2'][0]
+        # output2 = net.blobs['Mconv7_stage5_L2'].data[0]
         resize_output2 = np.zeros((output2.shape[0], h, w))
 
         for i in range(output1.shape[0]):
@@ -173,19 +175,19 @@ def multiscale_cnn_forward(oriImg, net, param):
     heatmap_avg = heatmap_avg / float(octave)
     paf_avg = paf_avg / float(octave)
 
-    visual = False
+    visual = True
     if visual:
         div_num = 255.
         mean_value = 127
-        npaf = 26
-        nparts = 14
+        npaf = 38
+        nparts = 18
         stride = 8
         label = np.concatenate((paf_avg, heatmap_avg), axis=0)
         img = np.copy(oriImg)
 
         perimg_len = 200
 
-        show_height = 4
+        show_height = 6
         show_width = 7
         show_pafs = np.zeros((show_height * perimg_len, show_width * perimg_len, 3), dtype=np.uint8)
         for j in range(npaf):
@@ -198,7 +200,7 @@ def multiscale_cnn_forward(oriImg, net, param):
             index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_pafs, (perimg_len, perimg_len))
         cv2.imshow('show_pafs', show_pafs)
 
-        show_len = 4
+        show_len = 5
         show_parts = np.zeros((show_len * perimg_len, show_len * perimg_len, 3), dtype=np.uint8)
         for j in range(nparts):
             parts = (label[npaf + j, :, :] * 255).astype(np.uint8)
