@@ -288,8 +288,8 @@ def get_vgg_test():
     return mx.symbol.Group([stage6_l1, stage6_l2])
 
 if __name__ == "__main__":
-    network = get_vgg_test()
+    network = get_vgg_train()
     network.save('vgg_test_network.json')
 
-    tmp = mx.viz.plot_network(network, shape={'data': (1, 3, 368, 368)})
+    tmp = mx.viz.plot_network(network)
     tmp.view()
