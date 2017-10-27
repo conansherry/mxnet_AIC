@@ -179,15 +179,15 @@ def multiscale_cnn_forward(oriImg, net, param):
     if visual:
         div_num = 255.
         mean_value = 127
-        npaf = 38
-        nparts = 18
+        npaf = 26
+        nparts = 14
         stride = 8
         label = np.concatenate((paf_avg, heatmap_avg), axis=0)
         img = np.copy(oriImg)
 
         perimg_len = 200
 
-        show_height = 6
+        show_height = 4
         show_width = 7
         show_pafs = np.zeros((show_height * perimg_len, show_width * perimg_len, 3), dtype=np.uint8)
         for j in range(npaf):
@@ -200,7 +200,7 @@ def multiscale_cnn_forward(oriImg, net, param):
             index_col * perimg_len:(index_col + 1) * perimg_len, :] = cv2.resize(img_pafs, (perimg_len, perimg_len))
         cv2.imshow('show_pafs', show_pafs)
 
-        show_len = 5
+        show_len = 4
         show_parts = np.zeros((show_len * perimg_len, show_len * perimg_len, 3), dtype=np.uint8)
         for j in range(nparts):
             parts = (label[npaf + j, :, :] * 255).astype(np.uint8)

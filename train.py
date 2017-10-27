@@ -104,11 +104,11 @@ def train_net(args, ctx, pretrained, epoch, prefix, lr=0.001):
             eval_metrics.add(AICRMSE(train_data.batch_size / len(ctx), stage=stage, branch=branch))
 
     # optimizer
-    optimizer_params = {'learning_rate': lr, 'lr_scheduler': mx.lr_scheduler.FactorScheduler(100000, factor=0.3)}
+    optimizer_params = {'learning_rate': lr, 'lr_scheduler': mx.lr_scheduler.FactorScheduler(100000, factor=0.3), 'rescale_grad': 1.0 / train_data.batch_size}
 
     mod.fit(train_data, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback,
             eval_metric=eval_metrics,
-            optimizer='sgd', optimizer_params=optimizer_params,
+            optimizer=mx.optimizer.RMSProp(learning_rate=lr), optimizer_params=optimizer_params,
             arg_params=arg_params, aux_params=aux_params, num_epoch=100)
 
 def parse_args():

@@ -58,6 +58,25 @@ def putGaussianMaps(img, pt, stride, sigma):
     img = np.clip(img, 0, 1)
     return img
 
+def putGaussianMapsMask(img, pt, stride, sigma):
+    img = np.copy(img)
+    start = float(stride) / 2.0 - 0.5
+    center_x = pt[0]
+    center_y = pt[1]
+    grid_y = img.shape[0]
+    grid_x = img.shape[1]
+    for i in range(grid_y):
+        for j in range(grid_x):
+            x = start + j * stride
+            y = start + i * stride
+            d2 = (x - center_x) * (x - center_x) + (y - center_y) * (y - center_y)
+            exponent = d2 / 2.0 / sigma / sigma
+            if exponent > 4.6052:
+                continue
+            img[i, j] = 1
+    img = np.clip(img, 0, 1)
+    return img
+
 def putVecMaps(entryX, entryY, centerA, centerB, stride, thre, count):
     centerA = centerA / float(stride)
     centerA_x = centerA[0]
@@ -96,9 +115,40 @@ def putVecMaps(entryX, entryY, centerA, centerB, stride, thre, count):
                     count[g_y, g_x] = cnt + 1
     return entryX, entryY
 
+def putVecMapsMask(entry, centerA, centerB, stride, thre):
+    centerA = centerA / float(stride)
+    centerA_x = centerA[0]
+    centerA_y = centerA[1]
+    centerB = centerB / float(stride)
+    centerB_x = centerB[0]
+    centerB_y = centerB[1]
+    grid_x = entry.shape[1]
+    grid_y = entry.shape[0]
+    bc = centerB - centerA
+    min_x = max(int(round(min(centerA_x, centerB_x) - thre)), 0)
+    max_x = min(int(round(max(centerA_x, centerB_x) + thre)), grid_x)
+    min_y = max(int(round(min(centerA_y, centerB_y) - thre)), 0)
+    max_y = min(int(round(max(centerA_y, centerB_y) + thre)), grid_y)
+    norm_bc = np.linalg.norm(bc)
+    if norm_bc == 0:
+        return entry
+    bc = bc / norm_bc
+    bc_x = bc[0]
+    bc_y = bc[1]
+
+    for g_y in range(min_y, max_y):
+        for g_x in range(min_x, max_x):
+            ba_x = g_x - centerA_x
+            ba_y = g_y - centerA_y
+            dist = np.absolute(ba_x * bc_y - ba_y * bc_x)
+
+            if (dist <= thre):
+                entry[g_y, g_x] = 1.0
+    return entry
+
 class FileIter(DataIter):
     def __init__(self, img_folder, anno_file, batch_size=20, no_shuffle=True, mean_value=0, div_num=1., num=1e6, inp_res=368, stride=8, train=True, sigma=7, thre=1, target_dist=0.6,
-                 flip_prob=0.5, scale_min=0.5, scale_max=1.2, rot_factor=40, center_perterb_max=40, label_type='Gaussian'):
+                 flip_prob=0.5, scale_min=0.5, scale_max=1.1, rot_factor=40, center_perterb_max=40, label_type='Gaussian'):
         super(FileIter, self).__init__()
         self.img_folder = img_folder  # root image folders
         self.is_train = train  # training set or test set
@@ -136,7 +186,7 @@ class FileIter(DataIter):
         print('Complete reading annotation JSON file in %.2f seconds.' % (time.time() - start_time))
 
         self.data_name = ['data']
-        self.label_name = ['l2_label']
+        self.label_name = ['l2_label', 'vecmap_weights', 'heatmap_weights']
         self.batch_size = batch_size
         self.data_size = len(self.annos)
         self.index = np.arange(self.data_size)
@@ -310,6 +360,7 @@ class FileIter(DataIter):
 
         # Generate ground truth
         target = np.zeros((npaf + nparts + 1, self.out_res, self.out_res))
+        weights = np.ones((2, 1, self.out_res, self.out_res)) * 0.1
         mid_1 = [13, 6, 7, 13, 9, 10, 13, 0, 1, 13, 3, 4, 13]
         mid_2 = [ 6, 7, 8,  9,10, 11,  0, 1, 2,  3, 4, 5, 12]
         # correspond
@@ -318,38 +369,42 @@ class FileIter(DataIter):
             count = np.zeros((self.out_res, self.out_res), dtype=np.int32)
             for i in range(human_count):
                 if int(pts[i][mid_1[j], 2]) != 3 and int(pts[i][mid_2[j], 2]) != 3:
-                    target[2 * j], target[2 * j + 1] = \
-                        putVecMaps(target[2 * j], target[2 * j + 1],
-                                   pts[i][mid_1[j], :2], pts[i][mid_2[j], :2], self.stride, self.thre, count)
+                    target[2 * j], target[2 * j + 1] = putVecMaps(target[2 * j], target[2 * j + 1], pts[i][mid_1[j], :2], pts[i][mid_2[j], :2], self.stride, self.thre, count)
+                    weights[0] = putVecMapsMask(weights[0, 0], pts[i][mid_1[j], :2], pts[i][mid_2[j], :2], self.stride, self.thre * 2)
 
         for i in range(human_count):
             for j in range(nparts):
                 if int(pts[i][j, 2]) != 3:
                     target[npaf+j] = putGaussianMaps(target[npaf+j], pts[i][j], self.stride, self.sigma)
+                    weights[1] = putGaussianMapsMask(weights[1, 0], pts[i][j], self.stride, self.sigma * 1.5)
 
         for j in range(nparts):
             target[npaf + j] = np.clip(target[npaf + j], 0, 1)
 
         target[nparts + npaf] = 1. - np.max(target[npaf:(npaf + nparts), :, :], 0)
 
-        return transformed_data, target, pts
+        return transformed_data, target, weights, pts
 
     def _read(self):
         """get two list, each list contains two elements: name and nd.array value"""
-        data, label = self._read_img()
+        data, label, w1, w2 = self._read_img()
         self.data = [mx.nd.array(data)]
-        self.label = [mx.nd.array(label)]
+        self.label = [mx.nd.array(label), mx.nd.array(w1), mx.nd.array(w2)]
 
     def _read_img(self):
 
         train_img = np.zeros((self.batch_size, 3, self.inp_res, self.inp_res), dtype=np.float32)
         train_label = np.zeros((self.batch_size, self.npaf + self.nparts + 1, self.out_res, self.out_res), dtype=np.float32)
+        train_vecmap_weights = np.zeros((self.batch_size, self.npaf, self.out_res, self.out_res), dtype=np.float32)
+        train_heatmap_weights = np.zeros((self.batch_size, self.nparts + 1, self.out_res, self.out_res), dtype=np.float32)
 
         for i in range(self.batch_size):
-            data, label, _ = self._getitem(self.index[self.data_cursor + i])
+            data, label, weights, _ = self._getitem(self.index[self.data_cursor + i])
 
             train_img[i] = data
             train_label[i] = label
+            train_vecmap_weights[i] = np.repeat(weights[0], self.npaf, axis=0)
+            train_heatmap_weights[i] = np.repeat(weights[1], self.nparts + 1, axis=0)
 
             # show data
             if False:
@@ -389,10 +444,20 @@ class FileIter(DataIter):
                 img_parts = (0.6 * img + 0.4 * parts).astype(np.uint8)
                 cv2.imshow('img_parts_bg', img_parts)
 
+                img_weights = (cv2.resize(weights[0, 0], (0, 0), fx=self.stride, fy=self.stride) * 255).astype(np.uint8)
+                img_weights = cv2.applyColorMap(img_weights, cv2.COLORMAP_JET)
+                img_weights = (0.6 * img + 0.4 * img_weights).astype(np.uint8)
+                cv2.imshow('img_weights_vecmap', img_weights)
+
+                img_weights = (cv2.resize(weights[1, 0], (0, 0), fx=self.stride, fy=self.stride) * 255).astype(np.uint8)
+                img_weights = cv2.applyColorMap(img_weights, cv2.COLORMAP_JET)
+                img_weights = (0.6 * img + 0.4 * img_weights).astype(np.uint8)
+                cv2.imshow('img_weights_heatmap', img_weights)
+
                 cv2.imshow('img', img)
                 cv2.waitKey()
 
-        return (train_img, train_label)
+        return (train_img, train_label, train_vecmap_weights, train_heatmap_weights)
 
     @property
     def provide_data(self):

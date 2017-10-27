@@ -6,6 +6,7 @@ import json
 import cv2
 import caffe
 from testutils_caffe import *
+import random
 
 import logging
 # set up logger
@@ -23,7 +24,7 @@ parser.add_argument('--o','--outputjson', dest='outputjson',
                     default='outputjson.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
-parser.add_argument('--e', default=10, type=int, metavar='N',
+parser.add_argument('--e', default=100, type=int, metavar='N',
                     help='end test number')
 parser.add_argument('-v', '--visual', dest='visual', action='store_true',
                     help='show results')
@@ -68,14 +69,16 @@ end_f = min(max(args.e, start_f), num_test)
 caffe.set_mode_gpu()
 prototxt = r'model_convert/vgg_test_network.prototxt'
 caffemodel = r'model_convert/vgg_test_network.caffemodel'
-prototxt = r'model_convert/pose_deploy_coco.prototxt'
-caffemodel = r'model_convert/pose_coco_iter_2000.caffemodel'
+prototxt = r'model_convert/pose_deploy.prototxt'
+caffemodel = r'model_convert/pose_iter_84000.caffemodel'
 net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
 res = []
+pic_index = range(len(image_files))
+random.shuffle(pic_index)
 for f in range(start_f, end_f):
     tic = time.time()
-    oriImg = cv2.imread(image_files[f])
+    oriImg = cv2.imread(image_files[pic_index[f]])
 
     heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, net, args)
     candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args)
@@ -87,7 +90,7 @@ for f in range(start_f, end_f):
     # cv2.waitKey(0)
 
     predictions = dict()
-    predictions['image_id'] = image_ids[f]
+    predictions['image_id'] = image_ids[pic_index[f]]
     predictions['keypoint_annotations'] = dict()
     for p in range(len(subset)):
         temp = np.zeros(3 * 14)
