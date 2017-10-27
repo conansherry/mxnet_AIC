@@ -188,8 +188,9 @@ class FileIter(DataIter):
         self.data_name = ['data']
         self.label_name = ['l2_label', 'vecmap_weights', 'heatmap_weights']
         self.batch_size = batch_size
-        self.data_size = len(self.annos)
-        self.index = np.arange(self.data_size)
+        #self.data_size = len(self.annos)
+        self.index = np.arange(min(50000, len(self.annos)))
+        self.data_size = len(self.index)
         self.no_shuffle = no_shuffle
         if not self.no_shuffle:
             random.shuffle(self.index)
