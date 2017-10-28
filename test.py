@@ -28,7 +28,7 @@ parser.add_argument('--o','--outputjson', dest='outputjson',
                     default='outputjson.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
-parser.add_argument('--e', default=500, type=int, metavar='N',
+parser.add_argument('--e', default=50, type=int, metavar='N',
                     help='end test number')
 parser.add_argument('-v', '--visual', dest='visual', action='store_true',
                     help='show results')
@@ -38,8 +38,9 @@ parser.add_argument('--octave', default=1, type=int, metavar='N',
                     help='scale number')
 parser.add_argument('--starting_range', default=1, type=float, metavar='F',
                     help='start scale')
-parser.add_argument('--ending_range', default=1.2, type=float, metavar='F',
+parser.add_argument('--ending_range', default=1.5, type=float, metavar='F',
                     help='end scale')
+parser.add_argument('--flip', help='flip test', action='store_true')
 parser.add_argument('--thre1', default=0.1, type=float, metavar='F',
                     help='threshold for peak')
 parser.add_argument('--thre2', default=0.1, type=float, metavar='F',
@@ -102,6 +103,9 @@ mod.init_params(arg_params=arg_params, aux_params=aux_params)
 
 res = []
 pic_index = range(len(image_files))
+# random.seed(10)
+random.seed(1001)
+random.seed(10010)
 random.shuffle(pic_index)
 for f in range(start_f, end_f):
     tic = time.time()

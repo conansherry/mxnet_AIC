@@ -117,6 +117,51 @@ def padRightDownCorner(img, stride, padValue=127):
 
     return img_padded, pad
 
+mid_1 = [13, 6, 7, 13, 9, 10, 13, 0, 1, 13, 3, 4, 13]
+mid_2 = [ 6, 7, 8,  9,10, 11,  0, 1, 2,  3, 4, 5, 12]
+
+def swapPafs(outputs):
+    swapPairs = ([0, 3], [1, 4], [2, 5], [6, 9], [7, 10], [8, 11])
+    for pair in swapPairs:
+        tmp = np.copy(outputs[2 * pair[0]])
+        outputs[2 * pair[0]] = outputs[2 * pair[1]]
+        outputs[2 * pair[1]] = tmp
+
+        tmp = np.copy(outputs[2 * pair[0] + 1])
+        outputs[2 * pair[0] + 1] = outputs[2 * pair[1] + 1]
+        outputs[2 * pair[1] + 1] = tmp
+    for i in range(13):
+        outputs[i * 2] = -outputs[i * 2]
+    return outputs
+
+def swapParts(outputs):
+    swapPairs = ([0, 3], [1, 4], [2, 5], [6, 9], [7, 10], [8, 11])
+    for pair in swapPairs:
+        tmp = np.copy(outputs[pair[0]])
+        outputs[pair[0]] = outputs[pair[1]]
+        outputs[pair[1]] = tmp
+    return outputs
+
+def swapleftright(x, width):
+    """
+    flip coords
+    """
+    matchedParts = (
+        [0, 3], [1, 4], [2, 5],
+        [6, 9], [7, 10], [8, 11]
+    )
+
+    # Flip horizontal
+    x[:, 0] = width - 1 - x[:, 0]
+
+    # Change left-right parts
+    for pair in matchedParts:
+        tmp = np.copy(x[pair[0], :])
+        x[pair[0], :] = x[pair[1], :]
+        x[pair[1], :] = tmp
+
+    return x
+
 def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args, keypoint_anno):
     h = oriImg.shape[0]
     w = oriImg.shape[1]
@@ -130,6 +175,8 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args, key
     else:
         padValue = 127
 
+    # oriImg = cv2.flip(oriImg, 1)
+
     starting_scale = float(boxsize) / float(h) * starting_range
     ending_scale = float(boxsize) / float(h) * ending_range
     multiplier = np.linspace(starting_scale, ending_scale, octave)
@@ -139,43 +186,67 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args, key
     heatmap_avg = 0  # save memory
     paf_avg = 0  # save memory
 
-    for m in range(len(multiplier)):
-        scale = multiplier[m]
-        sh = int(round(h * scale))
-        sw = int(round(w * scale))
+    for flip_index in range(2):
+        if not args.flip and flip_index == 1:
+            continue
+        for m in range(len(multiplier)):
+            scale = multiplier[m]
+            sh = int(round(h * scale))
+            sw = int(round(w * scale))
 
-        imageToTest = cv2.resize(oriImg, (sw, sh), interpolation=cv2.INTER_CUBIC)
-        imageToTest_padded, pad = padRightDownCorner(imageToTest, stride, padValue)
+            if flip_index == 1:
+                clone_img = cv2.flip(oriImg, 1)
+            else:
+                clone_img = oriImg
 
-        # print imageToTest_padded.shape
-        # cv2.imshow("pad", imageToTest_padded)
-        # cv2.waitKey(0)
+            imageToTest = cv2.resize(clone_img, (sw, sh), interpolation=cv2.INTER_CUBIC)
+            imageToTest_padded, pad = padRightDownCorner(imageToTest, stride, padValue)
 
-        imageToTest_padded = np.expand_dims(imageToTest_padded.transpose((2, 0, 1)), 0).astype(np.float32)
-        # imageToTest_padded = (imageToTest_padded.astype(np.uint8) - 127) / 255.
-        if args.network == 'vgg':
-            imageToTest_padded = (imageToTest_padded - 127) / 255.
-        # net.bind(data_shapes=[('data', imageToTest_padded.shape)], for_training=False, force_rebind=False, shared_module=net)
-        net.forward(mx.io.DataBatch([mx.nd.array(imageToTest_padded)]))
+            # print imageToTest_padded.shape
+            # cv2.imshow("pad", imageToTest_padded)
+            # cv2.waitKey(0)
 
-        outputs = dict(zip(net.output_names, net.get_outputs()))
-        output1 = outputs['Mconv7_stage6_L1_output'].asnumpy()[0]
-        resize_output1 = np.zeros((output1.shape[0], h, w))
-        output2 = outputs['Mconv7_stage6_L2_output'].asnumpy()[0]
-        resize_output2 = np.zeros((output2.shape[0], h, w))
+            imageToTest_padded = np.expand_dims(imageToTest_padded.transpose((2, 0, 1)), 0).astype(np.float32)
+            # imageToTest_padded = (imageToTest_padded.astype(np.uint8) - 127) / 255.
+            if args.network == 'vgg':
+                imageToTest_padded = (imageToTest_padded - 127) / 255.
+            # net.bind(data_shapes=[('data', imageToTest_padded.shape)], for_training=False, force_rebind=False, shared_module=net)
+            net.forward(mx.io.DataBatch([mx.nd.array(imageToTest_padded)]))
 
-        for i in range(output1.shape[0]):
-            resize_output1[i] = cv2.resize(output1[i], (w, h))
-        for i in range(output2.shape[0]):
-            resize_output2[i] = cv2.resize(output2[i], (w, h))
+            outputs = dict(zip(net.output_names, net.get_outputs()))
+            output1 = outputs['Mconv7_stage6_L1_output'].asnumpy()[0]
+            resize_output1 = np.zeros((output1.shape[0], h, w))
+            output2 = outputs['Mconv7_stage6_L2_output'].asnumpy()[0]
+            resize_output2 = np.zeros((output2.shape[0], h, w))
 
-        heatmap_avg += resize_output2[:-1]
-        paf_avg += resize_output1
+            if flip_index == 1:
+                output1 = swapPafs(output1)
+                output2 = swapParts(output2)
 
-    heatmap_avg = heatmap_avg / float(octave)
-    paf_avg = paf_avg / float(octave)
+            for i in range(output1.shape[0]):
+                if flip_index == 1:
+                    tmp = cv2.flip(output1[i], 1)
+                else:
+                    tmp = output1[i]
+                resize_output1[i] = cv2.resize(tmp, (w, h))
+            for i in range(output2.shape[0]):
+                if flip_index == 1:
+                    tmp = cv2.flip(output2[i], 1)
+                else:
+                    tmp = output2[i]
+                resize_output2[i] = cv2.resize(tmp, (w, h))
 
-    visual = False
+            heatmap_avg += resize_output2[:-1]
+            paf_avg += resize_output1
+
+    if args.flip:
+        heatmap_avg = heatmap_avg / float(octave) / 2
+        paf_avg = paf_avg / float(octave) / 2
+    else:
+        heatmap_avg = heatmap_avg / float(octave)
+        paf_avg = paf_avg / float(octave)
+
+    visual = True
     if visual:
         npaf = 26
         nparts = 14
@@ -310,8 +381,8 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param, keypoint_anno):
                     score_midpts = np.multiply(vec_x, vec[0]) + np.multiply(vec_y, vec[1])
                     score_with_dist_prior = sum(score_midpts) / len(score_midpts) + min(
                         float(oriImg.shape[0]) / (norm + 1) - 1, 0)
-                    # criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
-                    criterion1 = (sum(score_midpts) / mid_num) > 0.05
+                    criterion1 = len(np.nonzero(score_midpts > param.thre2)[0]) > 0.8 * len(score_midpts)
+                    # criterion1 = (sum(score_midpts) / mid_num) > 0.05
                     criterion2 = score_with_dist_prior > 0
 
                     if False:

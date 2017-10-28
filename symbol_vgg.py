@@ -268,22 +268,28 @@ def get_vgg_train():
 def get_vgg_test():
     data = mx.symbol.Variable(name="data")
 
-    relu2_2, relu3_3, relu4_3 = get_vgg_conv(data)
+    _, _, final_feat = get_vgg_conv(data)
 
-    conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3, num_filter=256, pad=(1, 1), kernel=(3, 3),
-                                        stride=(1, 1), no_bias=False)
-    relu4_4_CPM = mx.symbol.Activation(name='relu4_4_CPM', data=conv4_4_CPM, act_type='relu')
-    conv4_5_CPM = mx.symbol.Convolution(name='conv4_5_CPM', data=relu4_4_CPM, num_filter=128, pad=(1, 1), kernel=(3, 3),
-                                        stride=(1, 1), no_bias=False)
-    relu4_5_CPM = mx.symbol.Activation(name='relu4_5_CPM', data=conv4_5_CPM, act_type='relu')
+    if version_v1:
+        conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=final_feat, num_filter=256, pad=(1, 1), kernel=(3, 3),
+                                            stride=(1, 1), no_bias=False)
+        relu4_4_CPM = mx.symbol.Activation(name='relu4_4_CPM', data=conv4_4_CPM, act_type='relu')
+        conv4_5_CPM = mx.symbol.Convolution(name='conv4_5_CPM', data=relu4_4_CPM, num_filter=128, pad=(1, 1), kernel=(3, 3),
+                                            stride=(1, 1), no_bias=False)
+        final_cpm = mx.symbol.Activation(name='relu4_5_CPM', data=conv4_5_CPM, act_type='relu')
+    else:
+        conv4_3_CPM = mx.symbol.Convolution(name='conv4_3_CPM', data=final_feat, num_filter=256, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
+        relu4_3_CPM = mx.symbol.Activation(name='relu4_3_CPM', data=conv4_3_CPM, act_type='relu')
+        conv4_4_CPM = mx.symbol.Convolution(name='conv4_4_CPM', data=relu4_3_CPM, num_filter=128, pad=(1, 1), kernel=(3, 3), stride=(1, 1), no_bias=False)
+        final_cpm = mx.symbol.Activation(name='relu4_4_CPM', data=conv4_4_CPM, act_type='relu')
 
-    stage1_l1, stage1_l2 = get_stage_1(relu4_5_CPM)
+    stage1_l1, stage1_l2 = get_stage_1(final_cpm)
 
-    stage2_l1, stage2_l2 = get_stage_n(relu4_5_CPM, stage1_l1, stage1_l2, 2)
-    stage3_l1, stage3_l2 = get_stage_n(relu4_5_CPM, stage2_l1, stage2_l2, 3)
-    stage4_l1, stage4_l2 = get_stage_n(relu4_5_CPM, stage3_l1, stage3_l2, 4)
-    stage5_l1, stage5_l2 = get_stage_n(relu4_5_CPM, stage4_l1, stage4_l2, 5)
-    stage6_l1, stage6_l2 = get_stage_n(relu4_5_CPM, stage5_l1, stage5_l2, 6)
+    stage2_l1, stage2_l2 = get_stage_n(final_cpm, stage1_l1, stage1_l2, 2)
+    stage3_l1, stage3_l2 = get_stage_n(final_cpm, stage2_l1, stage2_l2, 3)
+    stage4_l1, stage4_l2 = get_stage_n(final_cpm, stage3_l1, stage3_l2, 4)
+    stage5_l1, stage5_l2 = get_stage_n(final_cpm, stage4_l1, stage4_l2, 5)
+    stage6_l1, stage6_l2 = get_stage_n(final_cpm, stage5_l1, stage5_l2, 6)
 
     return mx.symbol.Group([stage6_l1, stage6_l2])
 
