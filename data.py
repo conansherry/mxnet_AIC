@@ -189,7 +189,7 @@ class FileIter(DataIter):
         self.label_name = ['l2_label', 'vecmap_weights', 'heatmap_weights']
         self.batch_size = batch_size
         #self.data_size = len(self.annos)
-        self.index = np.arange(min(50000, len(self.annos)))
+        self.index = np.arange(min(1000000, len(self.annos)))
         self.data_size = len(self.index)
         self.no_shuffle = no_shuffle
         if not self.no_shuffle:
@@ -310,6 +310,12 @@ class FileIter(DataIter):
                     if i == human_count - 1:
                         cv2.imshow("crop test", img_temp3)
                         cv2.waitKey(0)
+
+            if random.random() < 0.3:
+                ksize = random.randint(3, 13)
+                if ksize % 2 == 0:
+                    ksize += 1
+                img_temp3 = cv2.blur(img_temp3, (ksize, ksize))
 
             # Augmentation Flip
             if random.random() <= self.flip_prob:
