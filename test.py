@@ -28,15 +28,15 @@ parser.add_argument('--o','--outputjson', dest='outputjson',
                     default='outputjson.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
-parser.add_argument('--e', default=50, type=int, metavar='N',
+parser.add_argument('--e', default=10, type=int, metavar='N',
                     help='end test number')
 parser.add_argument('-v', '--visual', dest='visual', action='store_true',
                     help='show results')
 
 # Test Config
-parser.add_argument('--octave', default=1, type=int, metavar='N',
+parser.add_argument('--octave', default=12, type=int, metavar='N',
                     help='scale number')
-parser.add_argument('--starting_range', default=1, type=float, metavar='F',
+parser.add_argument('--starting_range', default=0.5, type=float, metavar='F',
                     help='start scale')
 parser.add_argument('--ending_range', default=1.5, type=float, metavar='F',
                     help='end scale')
@@ -104,9 +104,9 @@ mod.init_params(arg_params=arg_params, aux_params=aux_params)
 res = []
 pic_index = range(len(image_files))
 # random.seed(10)
-random.seed(1001)
+# random.seed(1001)
 # random.seed(10010)
-random.shuffle(pic_index)
+# random.shuffle(pic_index)
 for f in range(start_f, end_f):
     tic = time.time()
     oriImg = cv2.imread(image_files[pic_index[f]])
