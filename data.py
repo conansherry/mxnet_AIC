@@ -205,7 +205,14 @@ class FileIter(DataIter):
         smax = self.scale_max
         rf = self.rot_factor
         cp_max = self.center_perterb_max
-        img_src = cv2.imread(os.path.join(self.img_folder, self.annos[index]['image_id'] + '.jpg'))
+
+        select_random = random.random()
+        if select_random < 0.33:
+            img_src = cv2.imread(os.path.join(self.img_folder, self.annos[index]['image_id'] + '.jpg'))
+        elif 0.33 <= select_random < 0.63:
+            img_src = cv2.imread(os.path.join(self.img_folder + '_blur', self.annos[index]['image_id'] + '.jpg'))
+        else:
+            img_src = cv2.imread(os.path.join(self.img_folder + '_gamma', self.annos[index]['image_id'] + '.jpg'))
         key_point = self.annos[index]['keypoint_annotations']
         human_annotations = self.annos[index]['human_annotations']
         human_count = len(key_point.keys())
@@ -310,12 +317,6 @@ class FileIter(DataIter):
                     if i == human_count - 1:
                         cv2.imshow("crop test", img_temp3)
                         cv2.waitKey(0)
-
-            if random.random() < 0.3:
-                ksize = random.randint(3, 13)
-                if ksize % 2 == 0:
-                    ksize += 1
-                img_temp3 = cv2.blur(img_temp3, (ksize, ksize))
 
             # Augmentation Flip
             if random.random() <= self.flip_prob:

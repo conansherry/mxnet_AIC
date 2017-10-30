@@ -105,7 +105,7 @@ res = []
 pic_index = range(len(image_files))
 # random.seed(10)
 random.seed(1001)
-random.seed(10010)
+# random.seed(10010)
 random.shuffle(pic_index)
 for f in range(start_f, end_f):
     tic = time.time()

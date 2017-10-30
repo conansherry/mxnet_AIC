@@ -246,7 +246,7 @@ def multiscale_cnn_forward(oriImg, net, param, arg_params, aux_params, args, key
         heatmap_avg = heatmap_avg / float(octave)
         paf_avg = paf_avg / float(octave)
 
-    visual = True
+    visual = False
     if visual:
         npaf = 26
         nparts = 14
