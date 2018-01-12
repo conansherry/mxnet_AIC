@@ -24,8 +24,8 @@ parser.add_argument('--prefix', help='model to test with', type=str)
 parser.add_argument('--epoch', help='model to test with', type=int)
 parser.add_argument('--gpu', help='GPU device to test with', default=0, type=int)
 parser.add_argument('--dataset', metavar='DATA', help='path to dataset')
-parser.add_argument('--o','--outputjson', dest='outputjson',
-                    default='outputjson0.json', metavar='FILE', help='file to save result')
+parser.add_argument('--o', '--outputjson', dest='outputjson',
+                    default='dance.json', metavar='FILE', help='file to save result')
 parser.add_argument('--s', default=0, type=int, metavar='N',
                     help='start test number')
 parser.add_argument('--e', default=100, type=int, metavar='N',
@@ -34,11 +34,11 @@ parser.add_argument('-v', '--visual', dest='visual', action='store_true',
                     help='show results')
 
 # Test Config
-parser.add_argument('--octave', default=12, type=int, metavar='N',
+parser.add_argument('--octave', default=6, type=int, metavar='N',
                     help='scale number')
 parser.add_argument('--starting_range', default=0.5, type=float, metavar='F',
                     help='start scale')
-parser.add_argument('--ending_range', default=1.5, type=float, metavar='F',
+parser.add_argument('--ending_range', default=1.2, type=float, metavar='F',
                     help='end scale')
 parser.add_argument('--flip', help='flip test', action='store_true')
 parser.add_argument('--thre1', default=0.1, type=float, metavar='F',
@@ -107,12 +107,45 @@ pic_index = range(len(image_files))
 # random.seed(1001)
 # random.seed(10010)
 random.shuffle(pic_index)
-for f in range(start_f, end_f):
-    tic = time.time()
-    oriImg = cv2.imread(image_files[pic_index[f]])
 
-    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params, args, keypoints_anno[pic_index[f]])
-    candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args, keypoints_anno[pic_index[f]])
+cap = cv2.VideoCapture()
+
+video_list = range(2, 27)
+video_index = 0
+cap.open(r'E:\ai_challenger\dance_video\1.mp4')
+video_name = 1
+output_dir = r'E:\ai_challenger\dance_output'
+
+# for f in range(start_f, end_f):
+f = 0
+while True:
+    tic = time.time()
+    # oriImg = cv2.imread(image_files[pic_index[f]])
+    go_next = False
+    for c in range(5):
+        ret, oriImg = cap.read()
+        if oriImg is None:
+            go_next = True
+            break
+    if go_next:
+        if video_index >= len(video_list):
+            break
+        video_name = video_list[video_index]
+        cap.open('E:/ai_challenger/dance_video/' + str(video_name) + '.mp4')
+        video_index += 1
+        f = 0
+        continue
+
+    pic_id = 'dance_' + str(video_name) + '_' + str(f)
+    cv2.imwrite(os.path.join(output_dir, pic_id + '.jpg'), oriImg)
+
+    f += 1
+
+    # heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params, args, keypoints_anno[pic_index[f]])
+    # candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args, keypoints_anno[pic_index[f]])
+
+    heatmap_avg, paf_avg = multiscale_cnn_forward(oriImg, mod, args, arg_params, aux_params, args, None)
+    candidate, subset = connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, args, None)
 
     # gt_batch_img = cvim_with_heatmap(oriImg, heatmap_avg, num_rows=4)
     # cv2.imshow('test1', cv2.cvtColor(gt_batch_img, cv2.COLOR_RGB2BGR))
@@ -121,8 +154,10 @@ for f in range(start_f, end_f):
     # cv2.waitKey(0)
 
     predictions = dict()
-    predictions['image_id'] = image_ids[pic_index[f]]
+    # predictions['image_id'] = image_ids[pic_index[f]]
+    predictions['image_id'] = pic_id
     predictions['keypoint_annotations'] = dict()
+    predictions['human_annotations'] = dict()
     for p in range(len(subset)):
         temp = np.zeros(3 * 14)
         for i in range(14):
@@ -134,12 +169,34 @@ for f in range(start_f, end_f):
             temp[3 * i] = X.astype(int)
             temp[3 * i + 1] = Y.astype(int)
             temp[3 * i + 2] = 1
+        temp_reshape = temp.reshape((-1, 3))
+        valid_index = np.where(temp_reshape[:, 2] != 0)[0]
+        valid_keypoint = temp_reshape[valid_index, :2].astype(np.float32)
+        box = cv2.boundingRect(np.expand_dims(valid_keypoint, axis=0))
+        predictions['human_annotations']['human' + str(p + 1)] = [box[0], box[1], box[0] + box[2], box[1] + box[3]]
         predictions['keypoint_annotations']['human' + str(p + 1)] = temp.astype(int).tolist()
     res.append(predictions)
 
-    print('Process %5d / %5d \t time:%1.2fs' % (f + 1, num_test, time.time() - tic))
+    for k, v in predictions['human_annotations'].items():
+        cv2.rectangle(oriImg, (v[0], v[1]), (v[2], v[3]), (255, 0, 0), 2)
 
-with open(args.outputjson, 'w') as outfile:
-    json.dump(res, outfile)
+    for k, v in predictions['keypoint_annotations'].items():
+        keypoint = np.array(v)
+        keypoint = keypoint.reshape((-1, 3)).astype(np.int32)
+        for j in range(keypoint.shape[0]):
+            if keypoint[j, 2] != 0:
+                cv2.putText(oriImg, str(j), (keypoint[j, 0], keypoint[j, 1]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 1)
+                cv2.circle(oriImg, (keypoint[j, 0], keypoint[j, 1]), 1, (0, 255, 0), 2)
+    cv2.imwrite(os.path.join(output_dir, 'draw_' + pic_id + '.jpg'), oriImg)
+    with open(os.path.join(output_dir, pic_id + '.json'), 'w') as outfile:
+        json.dump(predictions, outfile)
+    cv2.imshow('oriImg', oriImg)
+    cv2.waitKey(1)
+
+    # print('Process %5d / %5d \t time:%1.2fs' % (f + 1, num_test, time.time() - tic))
+    print('Process %5d / %5d \t time:%1.2fs' % (f, video_name, time.time() - tic))
+
+# with open(args.outputjson, 'w') as outfile:
+#     json.dump(res, outfile)
 
 

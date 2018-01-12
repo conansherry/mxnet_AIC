@@ -490,7 +490,7 @@ def connect_aic_LineVec(oriImg, heatmap_avg, paf_avg, param, keypoint_anno):
             deleteIdx.append(i)
     subset = np.delete(subset, deleteIdx, axis=0)
 
-    if param.visual:
+    if False:
         canvas = oriImg.copy()  # B,G,R order
         for i in range(14):
             for j in range(len(all_peaks[i])):

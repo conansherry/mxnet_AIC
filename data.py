@@ -56,6 +56,13 @@ def putGaussianMaps(img, pt, stride, sigma):
                 continue
             img[i, j] += math.exp(-exponent)
     img = np.clip(img, 0, 1)
+
+    img = cv2.resize(img, (0, 0), fx=8, fy=8)
+    temp = (img * 255).astype(np.uint8)
+    temp = cv2.applyColorMap(temp, cv2.COLORMAP_JET)
+    cv2.imshow('temp', temp)
+    cv2.waitKey()
+
     return img
 
 def putGaussianMapsMask(img, pt, stride, sigma):
@@ -207,7 +214,7 @@ class FileIter(DataIter):
         cp_max = self.center_perterb_max
 
         select_random = random.random()
-        if select_random < 0.33:
+        if True:
             img_src = cv2.imread(os.path.join(self.img_folder, self.annos[index]['image_id'] + '.jpg'))
         elif 0.33 <= select_random < 0.63:
             img_src = cv2.imread(os.path.join(self.img_folder + '_blur', self.annos[index]['image_id'] + '.jpg'))
@@ -415,7 +422,7 @@ class FileIter(DataIter):
             train_heatmap_weights[i] = np.repeat(weights[1], self.nparts + 1, axis=0)
 
             # show data
-            if False:
+            if True:
                 print data.shape, label.shape
                 img = (data.transpose((1, 2, 0)) * self.div_num + self.mean_value).astype(np.uint8)
 
@@ -440,6 +447,8 @@ class FileIter(DataIter):
                     parts = (label[self.npaf + j, :, :] * 255).astype(np.uint8)
                     parts = cv2.resize(parts, (0, 0), fx=self.stride, fy=self.stride)
                     parts = cv2.applyColorMap(parts, cv2.COLORMAP_JET)
+                    cv2.imshow('parts', parts)
+                    cv2.waitKey()
                     img_parts = (0.6 * img + 0.4 * parts).astype(np.uint8)
                     index_row = j / show_len
                     index_col = j % show_len
